@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Leaderboards are public to read — players and spectators just open the URL.
+// Writing anything requires a signed-in organiser account.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // A score must be a whole number of strokes, or null to clear the hole.
+    function validHoles(holes) {
+      return holes.keys().hasOnly(['1','2','3','4','5','6','7','8','9','10',
+                                   '11','12','13','14','15','16','17','18']);
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if signedIn();
+
+      match /players/{playerId} {
+        allow read: if true;
+        allow write: if signedIn();
+      }
+
+      match /teams/{teamId} {
+        allow read: if true;
+        allow write: if signedIn();
+      }
+
+      match /cards/{playerId} {
+        allow read: if true;
+        allow write: if signedIn()
+                     && (!request.resource.data.keys().hasAny(['holes'])
+                         || validHoles(request.resource.data.holes));
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

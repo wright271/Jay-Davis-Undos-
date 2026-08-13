@@ -1,0 +1,24 @@
+{
+  "name": "golf-tournament-scoring",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Flighted golf tournament scoring: individual, 2-man better ball, and skins.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "firebase": "^11.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
