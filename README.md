@@ -1,13 +1,14 @@
 # Undo's Amateur Golf Classic — Scoring
 
-Live scoring for a flighted amateur tournament — individual stroke play, 2-man
-better ball, and skins, all driven from one set of hole-by-hole scores.
+One file. `index.html` is the whole app — open it and it runs.
 
-Everything is scored **gross**: strokes taken, straight up. No handicaps.
+**Live:** https://wright271.github.io/Jay-Davis-Undos-/
 
-## How the tournament is scored
+Everything is scored **gross** — strokes taken, straight up. No handicaps.
 
-**Every player turns in an individual card.** That single card feeds all three
+## The three games
+
+Every player turns in **one individual card**. Those same scores feed all three
 games, so a score is only ever entered once.
 
 | Flight | Individual | Better ball | Skins |
@@ -18,134 +19,67 @@ games, so a score is only ever entered once.
 | Ladies | ✅ | — | — |
 | Junior | ✅ | — | — |
 
-- **Individual** — every player in the field, ranked within their own flight
-  (each flight numbers from 1) or across the whole field.
+- **Individual** — the whole field, ranked inside each flight.
 - **Better ball** — 2-man teams take their best score on each hole. Both
   partners still post their own card for the individual leaderboard.
-- **Skins** — outright low score on a hole wins it. Ties push, and by default
-  the skin carries to the next hole won. Ladies and Junior flights are not in
-  the game.
+- **Skins** — outright low score on a hole wins it; a tie pushes and nobody
+  takes it. Ladies and Junior are not in the game.
 
-### Which flight does a team play in?
+**A team plays in its stronger player's flight** — a Championship player paired
+with a First flight player makes a Championship team. Ladies and Junior players
+are not offered in the team builder at all.
 
-**A team plays in its stronger player's flight.** A Championship player paired
-with a First flight player makes a Championship flight team.
-
-Strength is ranked Championship → First → Senior. Senior is an age flight
-rather than a skill flight, so if the committee wants a Senior + First pairing
-to play Senior instead, change the numbers under **Admin → Settings → Flight
-strength** — lower is stronger. Ladies and Junior players cannot be put on a
-team; the team builder blocks it and the leaderboard flags any team that
-somehow ends up with one.
-
-### Ties
-
-Broken by matching cards: back 9, then 6, then 3, then the 18th. A genuine
-dead heat is shown as a shared position (T1) rather than being ordered
-arbitrarily.
-
-## The course
-
-Par 72 — 36 out, 36 in. The card holds a hole number and a par, nothing else.
-Edit par per hole under **Admin → Course**.
-
-## Running it
-
-```bash
-npm install
-npm run dev        # http://localhost:5173
-npm test           # scoring engine unit tests
-npm run build
-```
-
-`npm run dev` talks to the real Firebase project. If the database is
-unreachable the app says so and shows the last scores that device saw, rather
-than sitting on a loading spinner or showing a blank leaderboard.
-
-## Firebase
-
-The app is wired to the **jay-davis-undos** project and uses the **Realtime
-Database**. The web config lives in `src/lib/firebaseConfig.js`. A Firebase web
-config is public by design: it identifies the project and is compiled into the
-bundle every phone downloads. `database.rules.json` is what actually controls
-who can write — anyone may read the leaderboards, only signed-in organisers may
-post scores.
-
-Setup, in the
-[Firebase console](https://console.firebase.google.com/project/jay-davis-undos):
-
-1. **Build → Realtime Database → Create Database.** Choose **locked mode** —
-   the rules below replace the defaults. Note the instance URL shown at the top
-   of the Data tab; if it is not
-   `https://jay-davis-undos-default-rtdb.firebaseio.com`, update `databaseURL`
-   in `src/lib/firebaseConfig.js`.
-2. **Build → Authentication → Email/Password** — already enabled. Add a user per
-   organiser under the Users tab; those are the only accounts that can edit the
-   field or post scores.
-3. Publish the rules:
-
-   ```bash
-   npx firebase deploy --only database
-   ```
-
-   Or paste `database.rules.json` into the console's Rules tab and Publish.
-
-`.firebaserc` already points at the project, so no `firebase init` is needed.
-
-### How the data is laid out
-
-```
-tournaments/<id>/
-  meta/     name, date, courseName, holes[], settings{}
-  players/<playerId>   { firstName, lastName, flight }
-  teams/<teamId>       { name, playerIds[] }
-  cards/<playerId>/holes/<holeNumber> = strokes
-```
-
-Posting a score writes a single integer at `cards/<player>/holes/7` rather than
-rewriting a card, so two people scoring the same group cannot overwrite each
-other, and a phone only downloads the card that actually changed.
-
-## Deploying
-
-Pushing to `main` builds and deploys to Firebase Hosting via
-`.github/workflows/deploy.yml`. It needs one repository secret under
-**Settings → Secrets and variables → Actions**:
-
-- `FIREBASE_SERVICE_ACCOUNT` — from **Project settings → Service accounts →
-  Generate new private key**, pasted as JSON.
-
-The Firebase web config is already in the repo, so no other secrets are
-required. The `VITE_FIREBASE_*` secrets are optional overrides if you ever want
-a build to point at a different project.
-
-Or deploy by hand:
-
-```bash
-npm run build && npx firebase deploy --only hosting
-```
+Leaderboards rank on **score to par**, so a player still out on the course is
+compared fairly against one who has finished.
 
 ## Running the event
 
-1. **Admin → Players** — add the field, or paste it in under Bulk import
-   (`First, Last, Flight` per line).
-2. **Admin → Teams** — pair the 2-man better ball teams. Ladies and Junior
-   players are not offered.
-3. **Admin → Settings** — skins scope, carryover and value per skin.
-4. **Scores** — players post hole by hole out on the course; the leaderboards
-   update live.
+1. Open the link, go to **Better Ball → Admin** (bottom of the page), enter the
+   password.
+2. **Players** — add the field and set each player's flight. Or use **Bulk
+   roster** and paste one player per line: `Jay Davis, Championship`.
+3. **Teams** — pair the two-man teams.
+4. **Course / Par** — adjust par per hole if needed (defaults to par 72).
+5. Players tap their own name on the **Individual** tab and enter scores hole by
+   hole. Everything updates live on every phone.
 
-Admin lives at the bottom of the **Teams** tab.
+## Setup
 
-## Layout
+Two constants at the top of the `<script>` block in `index.html`:
+
+```js
+const DB_PATH = 'undos';            // the key in the database
+const ADMIN_PASSWORD = "captain";   // change this before sharing the link
+```
+
+**Change the password before you send the link out.** Anyone who opens the link
+can watch the leaderboards; only the password unlocks the roster and settings.
+
+### Firebase
+
+Uses the **jay-davis-undos** Realtime Database. The config is already in the
+file. Paste `database.rules.json` into the Firebase console under **Realtime
+Database → Rules → Publish**.
+
+The data lives under one key:
 
 ```
-src/lib/scoring.js       all scoring logic, pure functions, unit tested
-src/lib/scoring.test.js  32 tests covering flighting, better ball, skins, ties
-src/lib/store.test.js    12 tests covering reads, writes and offline behaviour
-src/lib/store.js         Realtime Database and localStorage adapters, one interface
-src/lib/constants.js     flights, course card, default settings
-src/lib/firebaseConfig.js  project config, overridable per environment
-src/components/          one file per tab
-database.rules.json      public read, organiser-only writes, score validation
+undos/
+  eventName
+  par/0..17
+  players/<id>   { name, flight, scores: { h0..h17 } }
+  teams/<id>     { a: <playerId>, b: <playerId> }
 ```
+
+Scores are written one hole at a time (`players/<id>/scores/h6`), so two people
+scoring the same group never overwrite each other.
+
+The rules allow writes without a login — the admin password is what gates the
+UI, not the database. That matches how the events have been run before. The
+rules do still check the shape of everything written: a score must be a whole
+number from 1 to 20 on a real hole, and a flight must be one of the five.
+
+## Publishing changes
+
+Edit `index.html`, commit, push to `main`. GitHub Pages serves it — no build, no
+install, no deploy step.

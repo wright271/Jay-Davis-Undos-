@@ -1,16 +1,9 @@
 node_modules/
-dist/
-.env
-.env.local
-.firebase/
 *.log
 .DS_Store
 
-# Service account keys grant admin access to the Firebase project. They belong
-# in a GitHub Actions secret, never in the repository.
+# Service account keys grant admin access to the Firebase project — never commit one.
 *serviceaccount*.json
-*service-account*.json
 *-adminsdk-*.json
-firebase-adminsdk*.json
 *.pem
 *.p12
