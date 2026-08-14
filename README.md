@@ -58,36 +58,53 @@ npm test           # scoring engine unit tests
 npm run build
 ```
 
-`npm run dev` talks to the real Firebase project. If Firestore is unreachable
-the app says so and falls back to the last scores that device saw, rather than
-silently showing an empty leaderboard.
+`npm run dev` talks to the real Firebase project. If the database is
+unreachable the app says so and shows the last scores that device saw, rather
+than sitting on a loading spinner or showing a blank leaderboard.
 
 ## Firebase
 
-The app is already wired to the **jay-davis-undos** Firebase project — the web
-config lives in `src/lib/firebaseConfig.js`. A Firebase web config is public by
-design: it identifies the project and is compiled into the bundle every phone
-downloads. `firestore.rules` is what actually controls who can write (anyone
-may read the leaderboards; only signed-in organisers may post scores).
+The app is wired to the **jay-davis-undos** project and uses the **Realtime
+Database**. The web config lives in `src/lib/firebaseConfig.js`. A Firebase web
+config is public by design: it identifies the project and is compiled into the
+bundle every phone downloads. `database.rules.json` is what actually controls
+who can write — anyone may read the leaderboards, only signed-in organisers may
+post scores.
 
-Two things still have to be switched on in the
-[Firebase console](https://console.firebase.google.com/project/jay-davis-undos)
-before scores will sync between phones:
+Setup, in the
+[Firebase console](https://console.firebase.google.com/project/jay-davis-undos):
 
-1. **Firestore** — Build → Firestore Database → Create database (production
-   mode). Until this is done the app shows "Not connected" and keeps working
-   against whatever that phone last saw.
-2. **Email/Password auth** — Build → Authentication → Sign-in method →
-   Email/Password → Enable. Then add a user per organiser under the Users tab.
-   Those accounts are the only ones that can edit the field or post scores.
+1. **Build → Realtime Database → Create Database.** Choose **locked mode** —
+   the rules below replace the defaults. Note the instance URL shown at the top
+   of the Data tab; if it is not
+   `https://jay-davis-undos-default-rtdb.firebaseio.com`, update `databaseURL`
+   in `src/lib/firebaseConfig.js`.
+2. **Build → Authentication → Email/Password** — already enabled. Add a user per
+   organiser under the Users tab; those are the only accounts that can edit the
+   field or post scores.
+3. Publish the rules:
 
-Then publish the security rules:
+   ```bash
+   npx firebase deploy --only database
+   ```
 
-```bash
-npx firebase deploy --only firestore:rules
-```
+   Or paste `database.rules.json` into the console's Rules tab and Publish.
 
 `.firebaserc` already points at the project, so no `firebase init` is needed.
+
+### How the data is laid out
+
+```
+tournaments/<id>/
+  meta/     name, date, courseName, holes[], settings{}
+  players/<playerId>   { firstName, lastName, flight }
+  teams/<teamId>       { name, playerIds[] }
+  cards/<playerId>/holes/<holeNumber> = strokes
+```
+
+Posting a score writes a single integer at `cards/<player>/holes/7` rather than
+rewriting a card, so two people scoring the same group cannot overwrite each
+other, and a phone only downloads the card that actually changed.
 
 ## Deploying
 
@@ -125,9 +142,10 @@ Admin lives at the bottom of the **Teams** tab.
 ```
 src/lib/scoring.js       all scoring logic, pure functions, unit tested
 src/lib/scoring.test.js  32 tests covering flighting, better ball, skins, ties
-src/lib/store.js         Firestore and localStorage adapters, one interface
+src/lib/store.test.js    12 tests covering reads, writes and offline behaviour
+src/lib/store.js         Realtime Database and localStorage adapters, one interface
 src/lib/constants.js     flights, course card, default settings
 src/lib/firebaseConfig.js  project config, overridable per environment
 src/components/          one file per tab
-firestore.rules          public read, organiser-only writes
+database.rules.json      public read, organiser-only writes, score validation
 ```

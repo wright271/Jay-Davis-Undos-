@@ -2,8 +2,9 @@
  * Tournament data access.
  *
  * Two interchangeable adapters behind one interface:
- *   - Firestore, with live listeners so every scorer's phone updates in place.
- *   - localStorage, used automatically when Firebase env vars are absent.
+ *   - Realtime Database, with live listeners so every scorer's phone updates
+ *     in place.
+ *   - localStorage, used automatically when no Firebase project is configured.
  *
  * Both expose:
  *   subscribe(cb) -> unsubscribe    cb({ tournament, players, teams, cards, ready })
@@ -16,37 +17,32 @@
  */
 
 import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
+  get,
+  onChildAdded,
+  onChildChanged,
+  onChildRemoved,
+  onValue,
+  ref,
+  remove,
   serverTimestamp,
-  setDoc,
-} from 'firebase/firestore';
+  set,
+  update,
+} from 'firebase/database';
 import { db, isFirebaseConfigured } from './firebase.js';
 import { DEFAULT_TOURNAMENT, DEFAULT_SETTINGS } from './constants.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
-/** Turn a Firestore failure into something the organiser can act on. */
-export function firestoreErrorMessage(err) {
+/** Turn a database failure into something the organiser can act on. */
+export function databaseErrorMessage(err) {
   const raw = err?.message || '';
-  if (/has not been used in project|SERVICE_DISABLED|not been used/i.test(raw)) {
-    return 'Firestore is not enabled on this Firebase project yet. Create the database in the Firebase console, then reload.';
+  if (/permission_denied|Permission denied/i.test(raw)) {
+    return 'The database rules are blocking this. Publish database.rules.json — npx firebase deploy --only database — or paste it into the Rules tab in the console.';
   }
-  switch (err?.code) {
-    case 'permission-denied':
-      return 'Firestore rules are blocking this read. Deploy firestore.rules with: npx firebase deploy --only firestore:rules';
-    case 'unavailable':
-      return 'Cannot reach Firestore. Check the connection — scores will sync once it is back.';
-    case 'failed-precondition':
-      return 'Firestore is not ready yet. Make sure the database has been created in the Firebase console.';
-    case 'unauthenticated':
-      return 'Sign in again to continue.';
-    default:
-      return raw || 'Could not reach the scoring database.';
+  if (/Index not defined/i.test(raw)) {
+    return 'The database is missing an index for this read.';
   }
+  return raw || 'Could not reach the scoring database.';
 }
 
 /** Fill in anything a stored tournament doc is missing. */
@@ -58,14 +54,45 @@ function normaliseTournament(raw) {
 }
 
 /* ------------------------------------------------------------------ *
- * Firestore adapter
- * ------------------------------------------------------------------ */
+ * Realtime Database adapter
+ * ------------------------------------------------------------------ *
+ *
+ * Layout under tournaments/<id>:
+ *   name, date, courseName, holes[], settings{}
+ *   players/<playerId>  { firstName, lastName, flight }
+ *   teams/<teamId>      { name, playerIds[] }
+ *   cards/<playerId>/holes/<holeNumber> = strokes
+ *
+ * Scores are stored one hole deep on purpose: posting a score writes a single
+ * integer at cards/<player>/holes/7 rather than rewriting a card, so two
+ * players on the same group entering scores at once cannot clobber each other.
+ */
 
-function firestoreStore(tournamentId) {
-  const root = doc(db, 'tournaments', tournamentId);
-  const playersCol = collection(root, 'players');
-  const teamsCol = collection(root, 'teams');
-  const cardsCol = collection(root, 'cards');
+/**
+ * RTDB returns a dense array as an array but a sparse one as an object keyed
+ * by index, so anything stored as a list has to be read back through this.
+ */
+function toArray(value, fallback) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (value && typeof value === 'object') {
+    return Object.values(value).filter(Boolean);
+  }
+  return fallback;
+}
+
+/** Children of a node as [{ id, ...fields }]. */
+function childList(value) {
+  if (!value || typeof value !== 'object') return [];
+  return Object.entries(value).map(([id, fields]) => ({ id, ...fields }));
+}
+
+function realtimeStore(tournamentId) {
+  const base = `tournaments/${tournamentId}`;
+  const rootRef = ref(db, base);
+  const metaRef = ref(db, `${base}/meta`);
+  const playersRef = ref(db, `${base}/players`);
+  const teamsRef = ref(db, `${base}/teams`);
+  const cardsRef = ref(db, `${base}/cards`);
 
   return {
     kind: 'firebase',
@@ -78,107 +105,177 @@ function firestoreStore(tournamentId) {
         cards: {},
         ready: false,
         error: null,
-        fromCache: true,
+        connected: true,
       };
-      const loaded = { tournament: false, players: false, teams: false, cards: false };
+      const loaded = { meta: false, players: false, teams: false, cards: false };
+
+      /**
+       * Unlike a cache-backed client, these listeners stay silent until they
+       * reach the server — so a phone that opens the app with no signal would
+       * sit on the loading screen indefinitely. Give them a few seconds, then
+       * show the app regardless: the defaults are enough to render, and the
+       * offline banner explains why it looks empty.
+       */
+      let timedOut = false;
+      let stopped = false;
+      const watchdog = setTimeout(() => {
+        timedOut = true;
+        emit();
+      }, 6000);
+
       const emit = () => {
-        state.ready = Object.values(loaded).every(Boolean);
+        if (stopped) return;
+        state.ready = timedOut || Object.values(loaded).every(Boolean);
         cb({ ...state });
       };
 
       /**
-       * A listener that fails — Firestore not enabled on the project, rules
-       * denying the read, no network — must not leave the app spinning on a
-       * loading screen. Mark that stream as settled, record why, and let the
-       * UI say something useful.
+       * A listener that fails — rules denying the read, database not created —
+       * must not leave the app spinning on a loading screen. Mark that stream
+       * as settled, record why, and let the UI say something useful.
        */
       const onError = (label) => (err) => {
-        state.error = { source: label, code: err?.code, message: firestoreErrorMessage(err) };
+        state.error = { source: label, message: databaseErrorMessage(err) };
         loaded[label] = true;
         emit();
       };
 
       const unsubs = [
-        onSnapshot(
-          root,
-          // `fromCache` stays true while the client cannot reach the server.
-          // Firestore retries silently rather than erroring, so this is the
-          // only signal that the leaderboard on screen may be stale.
-          { includeMetadataChanges: true },
+        // Tournament settings and the course card.
+        onValue(
+          metaRef,
           (snap) => {
-            state.tournament = normaliseTournament(snap.exists() ? snap.data() : null);
-            state.fromCache = snap.metadata.fromCache;
-            loaded.tournament = true;
+            const raw = snap.val();
+            const meta = normaliseTournament(raw);
+            meta.holes = toArray(raw?.holes, DEFAULT_TOURNAMENT.holes);
+            state.tournament = meta;
+            loaded.meta = true;
             state.error = null;
             emit();
           },
-          onError('tournament'),
+          onError('meta'),
         ),
-        onSnapshot(
-          playersCol,
+
+        onValue(
+          playersRef,
           (snap) => {
-            state.players = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            state.players = childList(snap.val());
             loaded.players = true;
             emit();
           },
           onError('players'),
         ),
-        onSnapshot(
-          teamsCol,
+
+        onValue(
+          teamsRef,
           (snap) => {
-            state.teams = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            state.teams = childList(snap.val()).map((t) => ({
+              ...t,
+              playerIds: toArray(t.playerIds, []),
+            }));
             loaded.teams = true;
             emit();
           },
           onError('teams'),
         ),
-        onSnapshot(
-          cardsCol,
-          (snap) => {
-            state.cards = Object.fromEntries(snap.docs.map((d) => [d.id, { holes: d.data().holes || {} }]));
-            loaded.cards = true;
-            emit();
-          },
-          onError('cards'),
-        ),
+
+        // Cards are watched per child rather than as one node: during play this
+        // is the only branch changing, and a whole-node listener would push
+        // every player's card to every phone on each score posted.
+        onChildAdded(cardsRef, (snap) => {
+          state.cards = { ...state.cards, [snap.key]: { holes: snap.val()?.holes || {} } };
+          emit();
+        }, onError('cards')),
+        onChildChanged(cardsRef, (snap) => {
+          state.cards = { ...state.cards, [snap.key]: { holes: snap.val()?.holes || {} } };
+          emit();
+        }),
+        onChildRemoved(cardsRef, (snap) => {
+          const next = { ...state.cards };
+          delete next[snap.key];
+          state.cards = next;
+          emit();
+        }),
+
+        // `.info/connected` is the database's own view of the socket, which is
+        // how the app knows a leaderboard on screen may be stale.
+        onValue(ref(db, '.info/connected'), (snap) => {
+          state.connected = snap.val() === true;
+          emit();
+        }),
       ];
-      return () => unsubs.forEach((u) => u());
+
+      // The child listeners above never report "initial load finished", so ask
+      // once and let the incremental events take over from there.
+      get(cardsRef)
+        .then((snap) => {
+          const value = snap.val() || {};
+          state.cards = Object.fromEntries(
+            Object.entries(value).map(([id, card]) => [id, { holes: card?.holes || {} }]),
+          );
+          loaded.cards = true;
+          emit();
+        })
+        .catch(onError('cards'));
+
+      return () => {
+        // The initial read above may still be in flight; `stopped` keeps it
+        // from calling back into a screen that has already gone away.
+        stopped = true;
+        clearTimeout(watchdog);
+        unsubs.forEach((u) => u());
+      };
     },
 
     async saveTournament(patch) {
-      await setDoc(root, { ...patch, updatedAt: serverTimestamp() }, { merge: true });
+      await update(metaRef, { ...patch, updatedAt: serverTimestamp() });
     },
     async upsertPlayer(player) {
       const { id, ...rest } = player;
-      await setDoc(doc(playersCol, id), rest, { merge: true });
+      await update(ref(db, `${base}/players/${id}`), rest);
     },
     async removePlayer(id) {
-      await Promise.all([deleteDoc(doc(playersCol, id)), deleteDoc(doc(cardsCol, id))]);
+      await Promise.all([
+        remove(ref(db, `${base}/players/${id}`)),
+        remove(ref(db, `${base}/cards/${id}`)),
+      ]);
+      // Drop the player from any team they were paired into, so the team is
+      // not left pointing at somebody who is no longer in the field.
+      const snap = await get(teamsRef);
+      const teams = snap.val() || {};
+      await Promise.all(
+        Object.entries(teams)
+          .filter(([, t]) => toArray(t?.playerIds, []).includes(id))
+          .map(([teamId, t]) =>
+            update(ref(db, `${base}/teams/${teamId}`), {
+              playerIds: toArray(t?.playerIds, []).filter((pid) => pid !== id),
+            }),
+          ),
+      );
     },
     async upsertTeam(team) {
       const { id, ...rest } = team;
-      await setDoc(doc(teamsCol, id), rest, { merge: true });
+      await update(ref(db, `${base}/teams/${id}`), rest);
     },
     async removeTeam(id) {
-      await deleteDoc(doc(teamsCol, id));
+      await remove(ref(db, `${base}/teams/${id}`));
     },
     async setHoleScore(playerId, hole, value) {
+      const holeRef = ref(db, `${base}/cards/${playerId}/holes/${hole}`);
       const clean = value === null || value === '' ? null : Number(value);
-      await setDoc(
-        doc(cardsCol, playerId),
-        { holes: { [String(hole)]: clean }, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
+      if (clean === null) await remove(holeRef);
+      else await set(holeRef, clean);
     },
     async setCard(playerId, holes) {
-      await setDoc(doc(cardsCol, playerId), { holes, updatedAt: serverTimestamp() }, { merge: true });
+      await set(ref(db, `${base}/cards/${playerId}/holes`), holes);
     },
     async listTournaments() {
-      const snap = await getDocs(collection(db, 'tournaments'));
-      return snap.docs.map((d) => ({ id: d.id, name: d.data()?.name || d.id }));
+      const snap = await get(ref(db, 'tournaments'));
+      const all = snap.val() || {};
+      return Object.entries(all).map(([id, t]) => ({ id, name: t?.meta?.name || id }));
     },
     async createTournament(id, data) {
-      await setDoc(doc(db, 'tournaments', id), normaliseTournament(data), { merge: true });
+      await update(ref(db, `tournaments/${id}/meta`), normaliseTournament(data));
     },
   };
 }
@@ -320,5 +417,5 @@ function localStore(tournamentId) {
 
 /** Pick the adapter that matches the environment. */
 export function createStore(tournamentId) {
-  return isFirebaseConfigured && db ? firestoreStore(tournamentId) : localStore(tournamentId);
+  return isFirebaseConfigured && db ? realtimeStore(tournamentId) : localStore(tournamentId);
 }

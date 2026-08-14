@@ -27,6 +27,7 @@ export default function App() {
     cards: {},
     ready: false,
     error: null,
+    connected: true,
   });
   const [tab, setTab] = useState('individual');
   const [user, setUser] = useState(null);
@@ -34,21 +35,21 @@ export default function App() {
   useEffect(() => store.subscribe(setState), [store]);
   useEffect(() => watchAuth(setUser), []);
 
-  const { tournament, players, teams, cards, ready, error, fromCache } = state;
+  const { tournament, players, teams, cards, ready, error, connected } = state;
 
-  // Firestore serves cached data and retries quietly when it cannot reach the
-  // server, so a stale leaderboard looks identical to a live one. Call it out,
-  // but only once it has been out of touch long enough to matter — otherwise
-  // the banner flashes on every cold start.
+  // The database serves its cached copy and reconnects quietly, so a stale
+  // leaderboard looks identical to a live one. Call it out, but only once the
+  // socket has been down long enough to matter — otherwise the banner flashes
+  // on every cold start and on the brief drops that happen out on the course.
   const [staleSync, setStaleSync] = useState(false);
   useEffect(() => {
-    if (store.kind !== 'firebase' || !fromCache) {
+    if (store.kind !== 'firebase' || connected !== false) {
       setStaleSync(false);
       return undefined;
     }
     const t = setTimeout(() => setStaleSync(true), 6000);
     return () => clearTimeout(t);
-  }, [store.kind, fromCache]);
+  }, [store.kind, connected]);
   const holes = tournament?.holes ?? DEFAULT_TOURNAMENT.holes;
   const settings = tournament?.settings ?? DEFAULT_TOURNAMENT.settings;
 
@@ -91,7 +92,8 @@ export default function App() {
             <b>Not connected — showing the last scores this phone saw.</b>
             <span>
               New scores will sync automatically once the connection is back. If this project has
-              just been set up, check that Firestore is enabled in the Firebase console.
+              just been set up, check that the Realtime Database has been created in the Firebase
+              console.
             </span>
           </div>
         )}

@@ -12,7 +12,7 @@ export default defineConfig({
       output: {
         // Keep the Firebase SDK in its own chunk so the app shell paints fast
         // on a phone with one bar of signal.
-        manualChunks: { firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'] },
+        manualChunks: { firebase: ['firebase/app', 'firebase/database', 'firebase/auth'] },
       },
     },
   },

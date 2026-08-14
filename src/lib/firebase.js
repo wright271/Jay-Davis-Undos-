@@ -7,7 +7,7 @@
  * — handy for practice rounds and for local development.
  */
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 import {
   getAuth,
   onAuthStateChanged,
@@ -16,7 +16,7 @@ import {
 } from 'firebase/auth';
 import { firebaseConfig as config } from './firebaseConfig.js';
 
-export const isFirebaseConfigured = Boolean(config.apiKey && config.projectId);
+export const isFirebaseConfigured = Boolean(config.apiKey && config.databaseURL);
 
 let app = null;
 let db = null;
@@ -24,7 +24,7 @@ let auth = null;
 
 if (isFirebaseConfigured) {
   app = initializeApp(config);
-  db = getFirestore(app);
+  db = getDatabase(app);
   auth = getAuth(app);
 }
 

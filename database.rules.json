@@ -1,0 +1,61 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "tournaments": {
+      "$tournamentId": {
+        ".read": true,
+        ".write": "auth != null",
+
+        "meta": {
+          "name": { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "date": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "courseName": { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "holes": {
+            "$index": {
+              "number": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 36" },
+              "par": { ".validate": "newData.isNumber() && newData.val() >= 3 && newData.val() <= 6" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+
+        "players": {
+          "$playerId": {
+            "firstName": { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "lastName": { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "flight": {
+              ".validate": "newData.val() == 'championship' || newData.val() == 'first' || newData.val() == 'senior' || newData.val() == 'ladies' || newData.val() == 'junior'"
+            },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "teams": {
+          "$teamId": {
+            "name": { ".validate": "newData.isString() && newData.val().length <= 120" },
+            "playerIds": {
+              ".validate": "newData.hasChildren()",
+              "$index": { ".validate": "newData.isString()" }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "cards": {
+          "$playerId": {
+            "holes": {
+              "$hole": {
+                ".validate": "$hole.matches(/^([1-9]|1[0-8])$/) && newData.isNumber() && newData.val() >= 1 && newData.val() <= 30"
+              }
+            },
+            "updatedAt": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    }
+  }
+}
