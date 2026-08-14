@@ -16,7 +16,55 @@
     <title>Tournament Scoring</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      The boot notice below is replaced the moment React mounts. If the app
+      cannot start — a browser too old for the bundle, a failed download, a
+      crash on load — it stays put and reports what happened, so nobody is left
+      staring at a blank white screen on the first tee.
+    -->
+    <div id="root">
+      <div id="boot" style="font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#16241d;max-width:32em;margin:0 auto;padding:48px 24px;text-align:center">
+        <div style="font-size:2.5rem">⛳</div>
+        <p id="boot-msg" style="margin:12px 0 0;color:#6b7c74">Loading the leaderboard…</p>
+        <pre id="boot-detail" style="display:none;white-space:pre-wrap;word-break:break-word;text-align:left;background:#fdecea;color:#7d1a14;border:1px solid #f3c6c2;border-radius:10px;padding:12px;margin-top:16px;font-size:12px"></pre>
+      </div>
+    </div>
+
+    <script>
+      /* Deliberately ES5: this has to run even on a browser too old to parse
+         the app bundle, which is exactly when it is needed most. */
+      (function () {
+        var reported = false;
+        function report(title, detail) {
+          if (reported) return;
+          var msg = document.getElementById('boot-msg');
+          var pre = document.getElementById('boot-detail');
+          if (!msg || !pre) return;
+          reported = true;
+          msg.innerHTML = title;
+          msg.style.color = '#7d1a14';
+          msg.style.fontWeight = '600';
+          if (detail) {
+            pre.style.display = 'block';
+            pre.textContent = detail;
+          }
+        }
+        window.addEventListener('error', function (e) {
+          if (e && e.message) {
+            report('This browser could not run the scoring app.<br>Try Chrome or Safari, or update your phone.', e.message);
+          }
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason;
+          report('The app hit an error while starting.', (r && (r.message || r)) + '');
+        });
+        setTimeout(function () {
+          if (document.getElementById('boot')) {
+            report('The app did not finish loading.<br>Check your connection and reload.', '');
+          }
+        }, 15000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
