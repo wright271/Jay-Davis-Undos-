@@ -36,12 +36,20 @@ compared fairly against one who has finished.
 
 1. Open the link, go to **Better Ball → Admin** (bottom of the page), enter the
    password.
-2. **Players** — add the field and set each player's flight. Or use **Bulk
-   roster** and paste one player per line: `Jay Davis, Championship`.
-3. **Teams** — pair the two-man teams.
+2. **Tee sheet → Load the Saturday tee sheet.** The Saturday pairings are built
+   into the page: 32 groups, 125 players with their flights and tee times, and
+   the 58 better ball pairings. The first two names in a group are Team 1, the
+   last two are Team 2. The Ladies and Junior groups load as players only.
+3. Or build it by hand — **Players** to add the field and set flights (or
+   **Bulk roster**, one player per line: `Jay Davis, Championship`), then
+   **Teams** to pair them.
 4. **Course / Par** — adjust par per hole if needed (defaults to par 72).
-5. Players tap their own name on the **Individual** tab and enter scores hole by
-   hole. Everything updates live on every phone.
+5. Players tap their own name — on the **Individual** tab or under **Tee
+   Times** — and enter scores hole by hole. Everything updates live on every
+   phone.
+
+Reloading the tee sheet replaces the field and clears posted scores, so do it
+before play starts.
 
 ## Setup
 
@@ -67,7 +75,7 @@ The data lives under one key:
 undos/
   eventName
   par/0..17
-  players/<id>   { name, flight, scores: { h0..h17 } }
+  players/<id>   { name, flight, tee, grp, ord, scores: { h0..h17 } }
   teams/<id>     { a: <playerId>, b: <playerId> }
 ```
 
