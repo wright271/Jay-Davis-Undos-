@@ -148,6 +148,18 @@ p { margin: 0; }
 }
 .mode-note { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
 .footnote { font-size: 0.78rem; color: var(--muted); text-align: center; padding: 4px 16px 0; }
+.banner {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.banner-error { background: #fdecea; color: #7d1a14; border: 1px solid #f3c6c2; }
+.banner-warn { background: var(--amber-soft); color: var(--amber); border: 1px solid #f0dcc0; }
+
 .notice {
   background: var(--amber-soft);
   color: var(--amber);

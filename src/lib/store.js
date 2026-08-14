@@ -29,6 +29,26 @@ import { DEFAULT_TOURNAMENT, DEFAULT_SETTINGS } from './constants.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
+/** Turn a Firestore failure into something the organiser can act on. */
+export function firestoreErrorMessage(err) {
+  const raw = err?.message || '';
+  if (/has not been used in project|SERVICE_DISABLED|not been used/i.test(raw)) {
+    return 'Firestore is not enabled on this Firebase project yet. Create the database in the Firebase console, then reload.';
+  }
+  switch (err?.code) {
+    case 'permission-denied':
+      return 'Firestore rules are blocking this read. Deploy firestore.rules with: npx firebase deploy --only firestore:rules';
+    case 'unavailable':
+      return 'Cannot reach Firestore. Check the connection — scores will sync once it is back.';
+    case 'failed-precondition':
+      return 'Firestore is not ready yet. Make sure the database has been created in the Firebase console.';
+    case 'unauthenticated':
+      return 'Sign in again to continue.';
+    default:
+      return raw || 'Could not reach the scoring database.';
+  }
+}
+
 /** Fill in anything a stored tournament doc is missing. */
 function normaliseTournament(raw) {
   const t = { ...DEFAULT_TOURNAMENT, ...(raw || {}) };
@@ -51,34 +71,76 @@ function firestoreStore(tournamentId) {
     kind: 'firebase',
 
     subscribe(cb) {
-      const state = { tournament: null, players: [], teams: [], cards: {}, ready: false };
+      const state = {
+        tournament: normaliseTournament(null),
+        players: [],
+        teams: [],
+        cards: {},
+        ready: false,
+        error: null,
+        fromCache: true,
+      };
       const loaded = { tournament: false, players: false, teams: false, cards: false };
       const emit = () => {
         state.ready = Object.values(loaded).every(Boolean);
         cb({ ...state });
       };
 
+      /**
+       * A listener that fails — Firestore not enabled on the project, rules
+       * denying the read, no network — must not leave the app spinning on a
+       * loading screen. Mark that stream as settled, record why, and let the
+       * UI say something useful.
+       */
+      const onError = (label) => (err) => {
+        state.error = { source: label, code: err?.code, message: firestoreErrorMessage(err) };
+        loaded[label] = true;
+        emit();
+      };
+
       const unsubs = [
-        onSnapshot(root, (snap) => {
-          state.tournament = normaliseTournament(snap.exists() ? snap.data() : null);
-          loaded.tournament = true;
-          emit();
-        }),
-        onSnapshot(playersCol, (snap) => {
-          state.players = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          loaded.players = true;
-          emit();
-        }),
-        onSnapshot(teamsCol, (snap) => {
-          state.teams = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          loaded.teams = true;
-          emit();
-        }),
-        onSnapshot(cardsCol, (snap) => {
-          state.cards = Object.fromEntries(snap.docs.map((d) => [d.id, { holes: d.data().holes || {} }]));
-          loaded.cards = true;
-          emit();
-        }),
+        onSnapshot(
+          root,
+          // `fromCache` stays true while the client cannot reach the server.
+          // Firestore retries silently rather than erroring, so this is the
+          // only signal that the leaderboard on screen may be stale.
+          { includeMetadataChanges: true },
+          (snap) => {
+            state.tournament = normaliseTournament(snap.exists() ? snap.data() : null);
+            state.fromCache = snap.metadata.fromCache;
+            loaded.tournament = true;
+            state.error = null;
+            emit();
+          },
+          onError('tournament'),
+        ),
+        onSnapshot(
+          playersCol,
+          (snap) => {
+            state.players = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            loaded.players = true;
+            emit();
+          },
+          onError('players'),
+        ),
+        onSnapshot(
+          teamsCol,
+          (snap) => {
+            state.teams = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            loaded.teams = true;
+            emit();
+          },
+          onError('teams'),
+        ),
+        onSnapshot(
+          cardsCol,
+          (snap) => {
+            state.cards = Object.fromEntries(snap.docs.map((d) => [d.id, { holes: d.data().holes || {} }]));
+            loaded.cards = true;
+            emit();
+          },
+          onError('cards'),
+        ),
       ];
       return () => unsubs.forEach((u) => u());
     },

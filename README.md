@@ -58,48 +58,55 @@ npm test           # scoring engine unit tests
 npm run build
 ```
 
-Without Firebase configured the app stores everything in the browser on that
-one device — good for a practice round or trying it out, but scores do not
-sync between phones.
+`npm run dev` talks to the real Firebase project. If Firestore is unreachable
+the app says so and falls back to the last scores that device saw, rather than
+silently showing an empty leaderboard.
 
-## Firebase setup
+## Firebase
 
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com).
-2. **Build → Firestore Database → Create database** (production mode).
-3. **Build → Authentication → Sign-in method → Email/Password → Enable**, then
-   add a user for each organiser under the Users tab. These are the only
-   accounts that can edit the field or post scores.
-4. **Project settings → General → Your apps → Web app** — copy the config
-   values into a `.env` file:
+The app is already wired to the **jay-davis-undos** Firebase project — the web
+config lives in `src/lib/firebaseConfig.js`. A Firebase web config is public by
+design: it identifies the project and is compiled into the bundle every phone
+downloads. `firestore.rules` is what actually controls who can write (anyone
+may read the leaderboards; only signed-in organisers may post scores).
 
-   ```bash
-   cp .env.example .env   # then paste your values in
-   ```
+Two things still have to be switched on in the
+[Firebase console](https://console.firebase.google.com/project/jay-davis-undos)
+before scores will sync between phones:
 
-5. Publish the security rules (leaderboards public to read, writes require a
-   signed-in organiser):
+1. **Firestore** — Build → Firestore Database → Create database (production
+   mode). Until this is done the app shows "Not connected" and keeps working
+   against whatever that phone last saw.
+2. **Email/Password auth** — Build → Authentication → Sign-in method →
+   Email/Password → Enable. Then add a user per organiser under the Users tab.
+   Those accounts are the only ones that can edit the field or post scores.
 
-   ```bash
-   npx firebase deploy --only firestore:rules
-   ```
+Then publish the security rules:
 
-The config values in `.env` are public by design — they identify the project,
-they do not grant access. `firestore.rules` is what controls who can write.
+```bash
+npx firebase deploy --only firestore:rules
+```
+
+`.firebaserc` already points at the project, so no `firebase init` is needed.
 
 ## Deploying
 
 Pushing to `main` builds and deploys to Firebase Hosting via
-`.github/workflows/deploy.yml`. Add these repository secrets under
+`.github/workflows/deploy.yml`. It needs one repository secret under
 **Settings → Secrets and variables → Actions**:
 
-- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
-  `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
-  `VITE_FIREBASE_APP_ID`, `VITE_TOURNAMENT_ID`
 - `FIREBASE_SERVICE_ACCOUNT` — from **Project settings → Service accounts →
   Generate new private key**, pasted as JSON.
 
-Run `npx firebase init hosting` once locally to link the project, or set it up
-in the console.
+The Firebase web config is already in the repo, so no other secrets are
+required. The `VITE_FIREBASE_*` secrets are optional overrides if you ever want
+a build to point at a different project.
+
+Or deploy by hand:
+
+```bash
+npm run build && npx firebase deploy --only hosting
+```
 
 ## Running the event
 
@@ -120,6 +127,7 @@ src/lib/scoring.js       all scoring logic, pure functions, unit tested
 src/lib/scoring.test.js  32 tests covering flighting, better ball, skins, ties
 src/lib/store.js         Firestore and localStorage adapters, one interface
 src/lib/constants.js     flights, course card, default settings
+src/lib/firebaseConfig.js  project config, overridable per environment
 src/components/          one file per tab
 firestore.rules          public read, organiser-only writes
 ```

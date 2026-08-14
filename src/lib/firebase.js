@@ -1,9 +1,10 @@
 /**
  * Firebase bootstrap.
  *
- * Every value comes from Vite env vars (see .env.example). If they are absent
- * the app falls back to on-device storage, so a fresh clone runs with no
- * backend at all — handy for practice rounds and for local development.
+ * Config comes from src/lib/firebaseConfig.js, overridable per environment
+ * with VITE_FIREBASE_* env vars. If no project is configured at all the app
+ * falls back to on-device storage, so a fresh clone still runs with no backend
+ * — handy for practice rounds and for local development.
  */
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
@@ -13,15 +14,7 @@ import {
   signInWithEmailAndPassword,
   signOut as fbSignOut,
 } from 'firebase/auth';
-
-const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+import { firebaseConfig as config } from './firebaseConfig.js';
 
 export const isFirebaseConfigured = Boolean(config.apiKey && config.projectId);
 

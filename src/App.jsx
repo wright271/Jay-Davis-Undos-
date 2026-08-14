@@ -7,8 +7,7 @@ import TeamsTab from './components/TeamsTab.jsx';
 import SkinsTab from './components/SkinsTab.jsx';
 import ScoreEntryTab from './components/ScoreEntryTab.jsx';
 import AdminTab from './components/AdminTab.jsx';
-
-const TOURNAMENT_ID = import.meta.env.VITE_TOURNAMENT_ID || 'default';
+import { tournamentId as TOURNAMENT_ID } from './lib/firebaseConfig.js';
 
 const TABS = [
   { id: 'individual', label: 'Individual', icon: '🏌️' },
@@ -27,6 +26,7 @@ export default function App() {
     teams: [],
     cards: {},
     ready: false,
+    error: null,
   });
   const [tab, setTab] = useState('individual');
   const [user, setUser] = useState(null);
@@ -34,7 +34,21 @@ export default function App() {
   useEffect(() => store.subscribe(setState), [store]);
   useEffect(() => watchAuth(setUser), []);
 
-  const { tournament, players, teams, cards, ready } = state;
+  const { tournament, players, teams, cards, ready, error, fromCache } = state;
+
+  // Firestore serves cached data and retries quietly when it cannot reach the
+  // server, so a stale leaderboard looks identical to a live one. Call it out,
+  // but only once it has been out of touch long enough to matter — otherwise
+  // the banner flashes on every cold start.
+  const [staleSync, setStaleSync] = useState(false);
+  useEffect(() => {
+    if (store.kind !== 'firebase' || !fromCache) {
+      setStaleSync(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setStaleSync(true), 6000);
+    return () => clearTimeout(t);
+  }, [store.kind, fromCache]);
   const holes = tournament?.holes ?? DEFAULT_TOURNAMENT.holes;
   const settings = tournament?.settings ?? DEFAULT_TOURNAMENT.settings;
 
@@ -63,7 +77,24 @@ export default function App() {
       </header>
 
       <main className="app-body">
-        {!ready && <div className="loading">Loading scores…</div>}
+        {!ready && !error && <div className="loading">Loading scores…</div>}
+
+        {error && (
+          <div className="banner banner-error" role="alert">
+            <b>Scores are not syncing.</b>
+            <span>{error.message}</span>
+          </div>
+        )}
+
+        {!error && staleSync && (
+          <div className="banner banner-warn" role="status">
+            <b>Not connected — showing the last scores this phone saw.</b>
+            <span>
+              New scores will sync automatically once the connection is back. If this project has
+              just been set up, check that Firestore is enabled in the Firebase console.
+            </span>
+          </div>
+        )}
 
         {ready && tab === 'individual' && <IndividualTab {...shared} />}
         {ready && tab === 'teams' && <TeamsTab {...shared} onOpenAdmin={() => setTab('admin')} />}
