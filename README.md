@@ -34,7 +34,7 @@ compared fairly against one who has finished.
 
 ## Running the event
 
-1. Open the link, go to **Better Ball → Admin** (bottom of the page), enter the
+1. Open the link, go to **Leaderboard → Admin** (bottom of the page), enter the
    password.
 2. **Tee sheet → Load the Saturday tee sheet.** The Saturday pairings are built
    into the page: 32 groups, 125 players with their flights and tee times, and
@@ -48,8 +48,9 @@ compared fairly against one who has finished.
    column per player, a row per hole — so one person keeps the card for the
    group. Everything updates live on every phone.
 
-Scores are entered only from Tee Times. The Individual, Better Ball and Skins
-tabs are leaderboards and are read-only.
+Three tabs: **Tee Times** (where scores are entered), **Leaderboard** and
+**Skins**. Leaderboard holds the **Better Ball** and **Individual** standings on
+its own tabs. Everything outside Tee Times is read-only.
 
 Reloading the tee sheet replaces the field and clears posted scores, so do it
 before play starts.

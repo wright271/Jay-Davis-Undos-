@@ -67,6 +67,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .tab.on{color:#fff;border-bottom-color:var(--gold)}
 @media(max-width:360px){.tab{font-size:10.5px;letter-spacing:.2px}}
 
+/* Second-level tabs, sitting under the Leaderboard tab */
+.subtabs{display:flex;background:var(--board-hd);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.subtab{flex:1;padding:11px 4px;text-align:center;font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#8fb3a0;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;font-family:inherit}
+.subtab.on{color:#fff;background:var(--board);border-bottom-color:var(--gold)}
+.subtab:active{color:#fff}
+
 /* ===== Layout ===== */
 .wrap{max-width:800px;margin:0 auto;padding:12px 12px 48px}
 .banner{background:#fff8e1;border:1px solid #f0d68a;color:#7a5d00;font-size:12px;padding:10px 12px;border-radius:6px;margin-bottom:12px;line-height:1.5}
@@ -531,7 +537,8 @@ function skinsWonBy(rows, id){
 }
 
 /* ---------- View state ---------- */
-let view = 'individual';      // individual | teams | skins | admin
+let view = 'tees';            // tees | board | skins | admin
+let boardTab = 'better';      // which leaderboard: better | individual
 let scoringGrp = null;        // group number being scored
 let skinsHole = null;
 let adminOk = false;
@@ -575,10 +582,9 @@ function render(){
   }
   html += `
     <div class="tabs">
-      <button class="tab ${view==='individual'?'on':''}" onclick="go('individual')">Individual</button>
-      <button class="tab ${view==='teams'?'on':''}" onclick="go('teams')">Better Ball</button>
-      <button class="tab ${view==='skins'?'on':''}" onclick="go('skins')">Skins</button>
       <button class="tab ${view==='tees'?'on':''}" onclick="go('tees')">Tee Times</button>
+      <button class="tab ${view==='board'?'on':''}" onclick="go('board')">Leaderboard</button>
+      <button class="tab ${view==='skins'?'on':''}" onclick="go('skins')">Skins</button>
     </div>
   </div>
   <div class="wrap">`;
@@ -586,20 +592,35 @@ function render(){
   if (localMode) html += `<div class="banner"><b>Local mode:</b> Firebase config not set — scores save on this device only.</div>`;
 
   if (scoringGrp !== null) html += renderGroupCard();
-  else if (view === 'individual') html += renderIndividual();
-  else if (view === 'teams') html += renderTeams();
-  else if (view === 'skins') html += (skinsHole !== null ? renderSkinDetail() : renderSkins());
   else if (view === 'tees') html += renderTees();
+  else if (view === 'board') html += renderLeaderboard();
+  else if (view === 'skins') html += (skinsHole !== null ? renderSkinDetail() : renderSkins());
   else html += renderAdmin();
 
   html += `</div>`;
   document.getElementById('app').innerHTML = html;
 }
 
+/* Leaderboard is a section rather than a single list: the better ball and the
+   individual standings live under it on their own tabs, which keeps the top
+   row down to the three places anyone actually needs to go. */
+function renderLeaderboard(){
+  let html = `<div class="subtabs">
+    <button class="subtab ${boardTab==='better'?'on':''}" onclick="setBoardTab('better')">Better Ball</button>
+    <button class="subtab ${boardTab==='individual'?'on':''}" onclick="setBoardTab('individual')">Individual</button>
+  </div>`;
+  html += (boardTab === 'individual') ? renderIndividual() : renderTeams();
+  html += `<div class="admin-wrap"><button class="admin-btn" onclick="go('admin')">
+    <svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+      <rect x="1" y="5.5" width="9" height="6.5" rx="1.2"></rect><path d="M3.2 5.5V3.6a2.3 2.3 0 0 1 4.6 0v1.9"></path>
+    </svg>Admin</button></div>`;
+  return html;
+}
+
 function renderIndividual(){
   const all = playerList();
   if (!all.length){
-    return `<div class="banner">No players yet. Load the field from <b>Admin</b> — the button is at the bottom of the Better Ball tab.</div>`;
+    return `<div class="banner">No players yet. Load the field from <b>Admin</b> — the button is at the bottom of the Leaderboard tab.</div>`;
   }
   let html = `<div class="banner">Every player turns in an individual card. Those same scores feed the better ball and the skins, so a score is only ever entered once. <b>Scores are entered from the Tee Times tab — one card per group.</b></div>`;
 
@@ -661,7 +682,7 @@ function renderTeams(){
         score = `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div>`;
         thru = `<div class="bgross">${r.done?'F':r.thru}</div>`;
       } else {
-        score = `<div><span class="bpend">—</span></div>`;
+        score = `<div class="bgross">—</div>`;
         thru = `<div class="bgross">—</div>`;
       }
       html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
@@ -686,10 +707,6 @@ function renderTeams(){
     html += `</div>`;
   }
 
-  html += `<div class="admin-wrap"><button class="admin-btn" onclick="go('admin')">
-    <svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-      <rect x="1" y="5.5" width="9" height="6.5" rx="1.2"></rect><path d="M3.2 5.5V3.6a2.3 2.3 0 0 1 4.6 0v1.9"></path>
-    </svg>Admin</button></div>`;
   return html;
 }
 
@@ -869,7 +886,7 @@ function gcNine(ps, labels, from, label){
 function renderTees(){
   const list = playerList().filter(x=>x.p.grp);
   if (!list.length){
-    return `<div class="banner">No tee times loaded yet. Load the sheet from <b>Admin &rarr; Tee sheet</b> — the Admin button is at the bottom of the Better Ball tab.</div>`;
+    return `<div class="banner">No tee times loaded yet. Load the sheet from <b>Admin &rarr; Tee sheet</b> — the Admin button is at the bottom of the Leaderboard tab.</div>`;
   }
   const groups = {};
   list.forEach(x=>{ (groups[x.p.grp] = groups[x.p.grp] || []).push(x); });
@@ -909,7 +926,7 @@ function renderTees(){
 }
 
 function renderAdmin(){
-  let html = `<button class="aback" onclick="go('teams')">&#8592; Better Ball</button>`;
+  let html = `<button class="aback" onclick="go('board')">&#8592; Leaderboard</button>`;
   if (!adminOk){
     return html + `<div class="alogin">
       <div style="font-weight:700;font-size:15px">Committee access</div>
@@ -1056,6 +1073,7 @@ function go(v){ view=v; scoringGrp=null; skinsHole=null; bulkMsg=''; render(); w
 function openSkin(h){ skinsHole=h; render(); window.scrollTo(0,0); }
 function closeSkin(){ skinsHole=null; render(); window.scrollTo(0,0); }
 function setAtab(t){ adminTab=t; bulkMsg=''; render(); }
+function setBoardTab(t){ boardTab=t; render(); window.scrollTo(0,0); }
 function openGroup(g){ scoringGrp=g; render(); window.scrollTo(0,0); }
 function closeScore(){ scoringGrp=null; view='tees'; render(); window.scrollTo(0,0); }
 function tryPwd(){
