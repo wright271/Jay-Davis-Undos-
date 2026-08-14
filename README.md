@@ -44,12 +44,29 @@ compared fairly against one who has finished.
    **Bulk roster**, one player per line: `Jay Davis, Championship`), then
    **Teams** to pair them.
 4. **Course / Par** — adjust par per hole if needed (defaults to par 72).
-5. Players tap their own name — on the **Individual** tab or under **Tee
-   Times** — and enter scores hole by hole. Everything updates live on every
-   phone.
+5. **Tee Times → SCORE** on a group. One card holds the whole foursome — a
+   column per player, a row per hole — so one person keeps the card for the
+   group. Everything updates live on every phone.
+
+Scores are entered only from Tee Times. The Individual, Better Ball and Skins
+tabs are leaderboards and are read-only.
 
 Reloading the tee sheet replaces the field and clears posted scores, so do it
 before play starts.
+
+## Sponsor logos
+
+The header shows a sponsor bar. Drop these three files in beside `index.html`
+and they appear automatically; until then the bar hides itself.
+
+| File | Sponsor |
+| --- | --- |
+| `undos.png` | Undo's — main sponsor, shown larger and centred |
+| `glessner.png` | The Glessner Group |
+| `united-dairy.png` | United Dairy |
+
+PNG with a transparent or white background works best. They sit on a white
+strip, sized to fit, so any reasonable dimensions are fine.
 
 ## Setup
 

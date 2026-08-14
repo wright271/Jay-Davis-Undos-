@@ -3,28 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Undo's Amateur Golf Classic</title>
+<title>Undo's Family Restaurant Amateur Golf Classic</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap">
 <style>
 :root{
-  --ink:#0a0a0a;
-  --gold:#C9A86A;
-  --board:#0d5132;
-  --board-alt:#11603c;
-  --board-hd:#07301e;
-  --dim:#7e9c8b;
-  --mid:#a8c9b8;
-  --up:#8fe0a5;
+  --ink:#0c3a1d;        /* Undo's deep green — header ground */
+  --gold:#F2D64B;       /* the yellow ring on the Undo's mark */
+  --board:#14512b;
+  --board-alt:#185c31;
+  --board-hd:#0c3a1d;
+  --dim:#7fa48b;
+  --mid:#aecfb9;
+  --up:#9ae8ac;
   --dn:#ff9fae;
-  --brand:#0d5132;
-  --green:#1e7d33;
+  --brand:#14512b;
+  --green:#1b7a33;
   --green-bg:#e6f4e9;
   --over:#c41e3a;
   --over-bg:#fdeaee;
-  --cream:#f7f1e1;
-  --bg:#eef1f0;
+  --cream:#fbf7e6;
+  --bg:#eef2ee;
   --card:#ffffff;
   --border:#d7ded9;
   --text:#1c2733;
@@ -38,11 +38,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 
 /* ===== Header ===== */
 .hdr{background:var(--ink)}
-.hdr-rule{height:2px;background:var(--gold)}
-.hdr-brand{display:flex;align-items:center;justify-content:center;gap:13px;padding:13px 14px}
+.hdr-rule{height:3px;background:var(--gold)}
+.hdr-brand{display:flex;align-items:center;justify-content:center;gap:13px;padding:14px 14px 12px}
 .hdr-txt{min-width:0;text-align:center}
-.hdr-title{font-family:'Great Vibes',cursive;font-size:27px;color:var(--gold);line-height:1.25}
-.hdr-sub{font-size:9px;color:#9a9a9a;letter-spacing:.9px;text-transform:uppercase;margin-top:2px;line-height:1.2}
+.hdr-title{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:21px;color:var(--gold);line-height:1.2;letter-spacing:.2px}
+.hdr-sub{font-size:9px;color:#b7cdbd;letter-spacing:1px;text-transform:uppercase;margin-top:5px;line-height:1.35}
+
+/* Sponsor strip — white ground, since the marks are drawn for white */
+.sponsors{background:#fff;border-top:3px solid var(--gold);display:flex;align-items:center;justify-content:center;gap:14px;padding:8px 10px;flex-wrap:nowrap}
+.sp{display:flex;align-items:center;justify-content:center;min-width:0}
+.sp img{display:block;width:auto;max-width:100%;object-fit:contain}
+.sp-main{flex:0 1 auto;max-width:38%}
+.sp-main img{max-height:42px}
+.sp-side{flex:0 1 auto;max-width:29%}
+.sp-side img{max-height:22px}
+@media(max-width:380px){.sp-main img{max-height:34px}.sp-side img{max-height:18px}.sponsors{gap:9px}}
 .hdr-lead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--board)}
 .hdr-lead.none{justify-content:center;text-align:center;padding:12px 14px}
 .hl-cap{font-size:8.5px;color:#8fb3a0;letter-spacing:.9px;text-transform:uppercase}
@@ -138,6 +148,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .nine-sub{display:flex;justify-content:space-between;align-items:center;background:#f3f6f4;border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:8px}
 .nine-sub b{color:var(--brand);font-size:13px}
 
+/* ===== Group scorecard — one column per player ===== */
+.score-btn{border:none;background:var(--gold);color:#1a1408;font-size:11px;font-weight:800;letter-spacing:.7px;padding:9px 16px;border-radius:16px;cursor:pointer;white-space:nowrap}
+.score-btn:active{transform:scale(.96);background:#d9bb7d}
+.gc{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card)}
+.gc-row{display:grid;grid-template-columns:56px repeat(var(--n),minmax(0,1fr));gap:0;align-items:center;border-top:1px solid #edf0f4}
+.gc-row:first-child{border-top:none}
+.gc-head{background:#f3f6f4;position:sticky;top:0;z-index:2}
+.gc-name{font-size:10px;font-weight:700;color:var(--muted);text-align:center;padding:7px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #edf0f4}
+.gc-lbl{padding:4px 6px;line-height:1.15}
+.gc-lbl b{font-size:13px;font-weight:700;color:var(--brand);display:block}
+.gc-lbl span{font-size:9px;color:var(--faint)}
+.gc-cell{border-left:1px solid #edf0f4;padding:3px}
+.gci{width:100%;height:40px;font-size:18px;font-weight:600;text-align:center;border:1px solid transparent;border-radius:5px;background:#fff;color:var(--text)}
+.gci:focus{outline:none;border-color:var(--brand);background:#fff;box-shadow:0 0 0 2px rgba(13,81,50,.15)}
+.gci.under{color:var(--green);font-weight:700}
+.gci.over{color:var(--over)}
+.gc-sub{background:#f3f6f4}
+.gc-tot9{text-align:center;font-size:14px;font-weight:700;color:var(--brand);padding:7px 2px;border-left:1px solid #edf0f4}
+.gc-tot{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:8px}
+.gc-tot .pc{background:var(--board);border-radius:8px;padding:9px 6px;text-align:center}
+.gc-tot .pc .n{font-size:10.5px;font-weight:700;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-tot .pc .v{font-size:19px;font-weight:700;margin-top:3px;color:#fff}
+.gc-tot .pc .s{font-size:9px;color:var(--dim);margin-top:1px}
+
 /* ===== Admin ===== */
 .admin-wrap{text-align:center;margin-top:18px}
 .admin-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #c4cdc7;background:transparent;color:var(--muted);font-size:11.5px;font-weight:600;padding:7px 16px;border-radius:16px;cursor:pointer;letter-spacing:.3px}
@@ -200,8 +234,9 @@ const ADMIN_PASSWORD = "captain";     // change this before you share the link
 /* ============================================================ */
 
 const NUM_HOLES = 18;
-const COURSE_NAME = "Undo's Golf Club";
-const EVENT_DEFAULT = "Undo's Amateur Golf Classic";
+const COURSE_NAME = "Belmont Hills Country Club";
+const COURSE_LOCATION = "St. Clairsville, Ohio";
+const EVENT_DEFAULT = "Undo's Family Restaurant Amateur Golf Classic";
 
 /* Par 72 — out 36 / in 36 */
 const PAR_DEFAULT = [4,3,5,4,4,5,3,4,4, 5,3,5,4,3,4,4,4,4];
@@ -497,7 +532,7 @@ function skinsWonBy(rows, id){
 
 /* ---------- View state ---------- */
 let view = 'individual';      // individual | teams | skins | admin
-let scoringId = null;         // player id being scored
+let scoringGrp = null;        // group number being scored
 let skinsHole = null;
 let adminOk = false;
 let adminTab = 'players';
@@ -515,10 +550,14 @@ function render(){
     <div class="hdr-brand">
       <div class="hdr-txt">
         <div class="hdr-title">${esc(state.eventName)}</div>
-        <div class="hdr-sub">${esc(COURSE_NAME)} &middot; par ${totalPar()}</div>
+        <div class="hdr-sub">${esc(COURSE_NAME)}<br>${esc(COURSE_LOCATION)} &middot; par ${totalPar()}</div>
       </div>
     </div>
-    <div class="hdr-rule"></div>`;
+    <div class="sponsors">
+      <span class="sp sp-side"><img src="./glessner.png" alt="The Glessner Group" onerror="this.parentNode.style.display='none';spCheck()"></span>
+      <span class="sp sp-main"><img src="./undos.png" alt="Undo's Italian Restaurants &amp; Catering" onerror="this.parentNode.style.display='none';spCheck()"></span>
+      <span class="sp sp-side"><img src="./united-dairy.png" alt="United Dairy" onerror="this.parentNode.style.display='none';spCheck()"></span>
+    </div>`;
   if (lr && lr.thru>0){
     html += `
     <div class="hdr-lead">
@@ -532,7 +571,7 @@ function render(){
       </div>
     </div>`;
   } else {
-    html += `<div class="hdr-lead none"><div><div class="hl-cap">No scores yet</div><div class="hl-thru">Tap your name to start scoring</div></div></div>`;
+    html += `<div class="hdr-lead none"><div><div class="hl-cap">No scores yet</div><div class="hl-thru">Open Tee Times and tap SCORE on your group</div></div></div>`;
   }
   html += `
     <div class="tabs">
@@ -546,7 +585,7 @@ function render(){
 
   if (localMode) html += `<div class="banner"><b>Local mode:</b> Firebase config not set — scores save on this device only.</div>`;
 
-  if (scoringId !== null) html += renderScorecard();
+  if (scoringGrp !== null) html += renderGroupCard();
   else if (view === 'individual') html += renderIndividual();
   else if (view === 'teams') html += renderTeams();
   else if (view === 'skins') html += (skinsHole !== null ? renderSkinDetail() : renderSkins());
@@ -560,9 +599,9 @@ function render(){
 function renderIndividual(){
   const all = playerList();
   if (!all.length){
-    return `<div class="banner">No players yet. Add the field from <b>Admin</b> — the button is at the bottom of the Better Ball tab.</div>`;
+    return `<div class="banner">No players yet. Load the field from <b>Admin</b> — the button is at the bottom of the Better Ball tab.</div>`;
   }
-  let html = `<div class="banner">Every player turns in an individual card. Those same scores feed the better ball and the skins, so a score is only ever entered once. <b>Tap a name to enter scores.</b></div>`;
+  let html = `<div class="banner">Every player turns in an individual card. Those same scores feed the better ball and the skins, so a score is only ever entered once. <b>Scores are entered from the Tee Times tab — one card per group.</b></div>`;
 
   FLIGHTS.forEach(f=>{
     const rows = rankPlayers(all.filter(x=>x.p.flight===f.id));
@@ -578,10 +617,10 @@ function renderIndividual(){
         score = `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div>`;
         thru = `<div class="bgross">${r.done?'F':r.thru}</div>`;
       } else {
-        score = `<div><span class="bpend">TAP</span></div>`;
+        score = `<div class="bgross">—</div>`;
         thru = `<div class="bgross">—</div>`;
       }
-      html += `<div class="brow tap g4 ${lead?'lead':''} ${i%2?'alt':''}" onclick="openScore('${x.id}')">
+      html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
         <div class="bnum">${r.thru>0 ? (i+1) : '—'}</div>
         <div>
           <div class="bname">${esc(x.p.name||'Unnamed')}</div>
@@ -739,52 +778,91 @@ function renderSkinDetail(){
   return html;
 }
 
-function renderScorecard(){
-  const id = scoringId;
-  const p = state.players[id];
-  if (!p){ scoringId=null; return renderIndividual(); }
-  const r = playerResult(p);
+/* Everyone in the group on one card: one column per player, one row per hole.
+   Whoever is keeping the card for the foursome enters all four scores here. */
+function groupPlayers(g){
+  return playerList().filter(x=>x.p.grp===g).sort((a,b)=>(a.p.ord||0)-(b.p.ord||0));
+}
 
-  let out=0, outN=0, inn=0, innN=0;
-  for (let h=0;h<9;h++){ const v=holeScore(p,h); if(v!==null){ out+=v; outN++; } }
-  for (let h=9;h<18;h++){ const v=holeScore(p,h); if(v!==null){ inn+=v; innN++; } }
+/* Column headings for a group. Surnames are the natural label, but a foursome
+   often contains brothers — Dave and Dan Angalich go out together — and two
+   columns both reading "Angalich" is worse than useless when you are entering
+   their scores. Fall back to the first name, then to the full name. */
+function columnLabels(ps){
+  const first = ps.map(x=>String(x.p.name||'').trim().split(/\s+/)[0] || '');
+  const last  = ps.map(x=>lastName(x.p.name) || x.p.name || '');
+  const count = (arr, v) => arr.filter(z=>z===v).length;
+  return ps.map((x,i)=>{
+    if (count(last, last[i]) === 1) return last[i];
+    if (count(first, first[i]) === 1) return first[i];
+    return x.p.name || last[i];
+  });
+}
+
+function renderGroupCard(){
+  const g = scoringGrp;
+  const ps = groupPlayers(g);
+  if (!ps.length){ scoringGrp=null; return renderTees(); }
+  const n = ps.length;
 
   let html = `
   <div class="sc-top">
-    <button class="back" onclick="closeScore()">&#8592; All players</button>
-    <div class="sc-fmt">${esc(flightLabel(p.flight))} Flight${p.tee ? ' &middot; ' + esc(p.tee) + (p.grp?' &middot; group '+p.grp:'') : ''}</div>
-    <div class="sc-team">${esc(p.name||'Unnamed')}</div>
-    <div class="sc-cells">
-      <div class="sc-cell"><div class="k">Score</div><div class="v">${r.thru?r.strokes:'—'}</div><div class="x">${r.thru?fmtRel(r.toPar):'not started'}</div></div>
-      <div class="sc-cell"><div class="k">Thru</div><div class="v">${r.thru?(r.done?'F':r.thru):'—'}</div><div class="x">of ${NUM_HOLES}</div></div>
-      <div class="sc-cell"><div class="k">Out / In</div><div class="v" style="font-size:15px">${outN?out:'—'} / ${innN?inn:'—'}</div><div class="x">par ${state.par.slice(0,9).reduce((a,b)=>a+b,0)} / ${state.par.slice(9).reduce((a,b)=>a+b,0)}</div></div>
-    </div>
-    <div class="fmt-note">Type the strokes taken on each hole. This card feeds the individual leaderboard, the better ball, and the skins.</div>
+    <button class="back" onclick="closeScore()">&#8592; Tee times</button>
+    <div class="sc-fmt">Group ${g} &middot; ${esc(ps[0].p.tee||'')}</div>
+    <div class="sc-team">${columnLabels(ps).map(esc).join(' &middot; ')}</div>
+    <div class="fmt-note">Enter every player's strokes on each hole. These cards feed the individual leaderboard, the better ball and the skins.</div>
   </div>`;
 
-  html += nineHtml(id, p, 0, 'Front nine', out, outN);
-  html += nineHtml(id, p, 9, 'Back nine', inn, innN);
+  const labels = columnLabels(ps);
+  html += gcNine(ps, labels, 0, 'Front nine');
+  html += gcNine(ps, labels, 9, 'Back nine');
 
-  html += `<div style="margin-top:16px"><button class="btn" onclick="closeScore()">Done — back to players</button></div>`;
+  html += `<div class="nine-hd">Totals</div><div class="gc-tot" style="--n:${n}">`;
+  ps.forEach((x,i)=>{
+    const r = playerResult(x.p);
+    html += `<div class="pc">
+      <div class="n">${esc(labels[i])}</div>
+      <div class="v">${r.thru?r.strokes:'—'}</div>
+      <div class="s">${r.thru?fmtRel(r.toPar)+' · '+(r.done?'F':'thru '+r.thru):'no scores'}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div style="margin-top:16px"><button class="btn" onclick="closeScore()">Done — back to tee times</button></div>`;
   return html;
 }
 
-function nineHtml(id, p, from, label, sum, n){
-  const parSum = state.par.slice(from, from+9).reduce((a,b)=>a+b,0);
-  let html = `<div class="nine-hd">${label}</div><div class="hole-grid">`;
+function gcNine(ps, labels, from, label){
+  const n = ps.length;
+  let html = `<div class="nine-hd">${label}</div><div class="gc" style="--n:${n}">`;
+
+  html += `<div class="gc-row gc-head">
+    <div class="gc-lbl">Hole</div>
+    ${ps.map((x,i)=>`<div class="gc-name">${esc(labels[i])}</div>`).join('')}
+  </div>`;
+
   for (let h=from; h<from+9; h++){
-    const v = holeScore(p, h);
-    const rel = v===null ? null : v - state.par[h];
-    html += `<div class="hcell">
-      <div class="hn">${h+1}</div>
-      <div class="hp">par ${state.par[h]}</div>
-      <input class="hinp" id="in_${id}_${h}" type="number" inputmode="numeric" min="1" max="20"
-        value="${v===null?'':v}" oninput="setScore('${id}',${h},this.value)">
-      <div class="hr ${rel===null?'':relClass(rel)}">${rel===null?'':fmtRel(rel)}</div>
+    html += `<div class="gc-row">
+      <div class="gc-lbl"><b>${h+1}</b><span>par ${state.par[h]}</span></div>
+      ${ps.map(x=>{
+        const v = holeScore(x.p, h);
+        const rel = v===null ? '' : relClass(v - state.par[h]);
+        return `<div class="gc-cell"><input class="gci ${rel}" id="in_${x.id}_${h}" type="number" inputmode="numeric" min="1" max="20"
+          value="${v===null?'':v}" oninput="setScore('${x.id}',${h},this.value)"></div>`;
+      }).join('')}
     </div>`;
   }
+
+  html += `<div class="gc-row gc-sub">
+    <div class="gc-lbl"><b>${from===0?'Out':'In'}</b><span>par ${state.par.slice(from,from+9).reduce((a,b)=>a+b,0)}</span></div>
+    ${ps.map(x=>{
+      let sum=0, cnt=0;
+      for (let h=from; h<from+9; h++){ const v=holeScore(x.p,h); if(v!==null){ sum+=v; cnt++; } }
+      return `<div class="gc-tot9">${cnt?sum:'—'}</div>`;
+    }).join('')}
+  </div>`;
+
   html += `</div>`;
-  html += `<div class="nine-sub"><span>${n}/9 holes posted</span><span>${n?`<b>${sum}</b> vs par ${parSum} &middot; ${fmtRel(sum-state.par.slice(from,from+9).reduce((a,b,i)=>{const hh=from+i;return a+(holeScore(p,hh)!==null?state.par[hh]:0)},0))}`:'—'}</span></div>`;
   return html;
 }
 
@@ -798,19 +876,24 @@ function renderTees(){
   Object.keys(groups).forEach(k=>{ groups[k].sort((a,b)=>(a.p.ord||0)-(b.p.ord||0)); });
   const nums = Object.keys(groups).map(Number).sort((a,b)=>a-b);
 
-  let html = `<div class="banner">Saturday pairings. The first two names in a group are <b>Team 1</b>, the last two are <b>Team 2</b>. <b>Tap a name to enter scores.</b></div>`;
+  let html = `<div class="banner">Saturday pairings. The first two names in a group are <b>Team 1</b>, the last two are <b>Team 2</b>. <b>Tap SCORE to enter the whole group's card.</b></div>`;
   html += `<div class="board">
     <div class="board-hd"><span class="t">Tee times</span><span class="r">${nums.length} groups &middot; ${list.length} players</span></div>`;
   nums.forEach((g,i)=>{
     const ps = groups[g];
+    const done = ps.filter(x=>playerResult(x.p).done).length;
+    const started = ps.filter(x=>playerResult(x.p).thru>0).length;
     html += `<div class="brow g3 ${i%2?'alt':''}" style="cursor:default">
       <div class="bnum">${g}</div>
-      <div><div class="bname">${esc(ps[0].p.tee||'')}</div></div>
-      <div class="bgross" style="font-size:10px">${ps.length} players</div>
+      <div>
+        <div class="bname">${esc(ps[0].p.tee||'')}</div>
+        <div class="bsub">${ps.length} players${started?' &middot; '+(done===ps.length?'all in':started+' scoring'):''}</div>
+      </div>
+      <div><button class="score-btn" onclick="openGroup(${g})">SCORE</button></div>
     </div>`;
     ps.forEach(x=>{
       const r = playerResult(x.p);
-      html += `<div class="brow tap g4 ${i%2?'alt':''}" style="border-top:none;padding-top:5px;padding-bottom:5px" onclick="openScore('${x.id}')">
+      html += `<div class="brow g4 ${i%2?'alt':''}" style="border-top:none;padding-top:5px;padding-bottom:5px;cursor:default">
         <div class="bnum"></div>
         <div><div class="bname" style="font-weight:600">${esc(x.p.name||'Unnamed')}</div>
           <div class="bsub">${esc(flightLabel(x.p.flight))}</div></div>
@@ -819,6 +902,7 @@ function renderTees(){
       </div>`;
     });
   });
+
   html += `<div class="bfoot">Teams are the two names above and the two below inside each group. Ladies and Junior groups play individually.</div>`;
   html += `</div>`;
   return html;
@@ -968,12 +1052,12 @@ function renderAdmin(){
 }
 
 /* ---------- Actions ---------- */
-function go(v){ view=v; scoringId=null; skinsHole=null; bulkMsg=''; render(); window.scrollTo(0,0); }
+function go(v){ view=v; scoringGrp=null; skinsHole=null; bulkMsg=''; render(); window.scrollTo(0,0); }
 function openSkin(h){ skinsHole=h; render(); window.scrollTo(0,0); }
 function closeSkin(){ skinsHole=null; render(); window.scrollTo(0,0); }
 function setAtab(t){ adminTab=t; bulkMsg=''; render(); }
-function openScore(id){ scoringId=id; render(); window.scrollTo(0,0); }
-function closeScore(){ scoringId=null; render(); window.scrollTo(0,0); }
+function openGroup(g){ scoringGrp=g; render(); window.scrollTo(0,0); }
+function closeScore(){ scoringGrp=null; view='tees'; render(); window.scrollTo(0,0); }
 function tryPwd(){
   const el = document.getElementById('pwd');
   if (el.value === ADMIN_PASSWORD){ adminOk=true; render(); }
@@ -1144,6 +1228,15 @@ function clearAll(){
   state = defaultState();
   if (!localMode && ref) ref.set(state); else persist('', null);
   render();
+}
+
+/* Hide the whole sponsor bar until the logo files exist, rather than leaving an
+   empty white strip under the header. */
+function spCheck(){
+  const bar = document.querySelector('.sponsors');
+  if (!bar) return;
+  const shown = Array.prototype.filter.call(bar.querySelectorAll('.sp'), el=>el.style.display!=='none');
+  bar.style.display = shown.length ? '' : 'none';
 }
 
 function renderPreservingFocus(){
