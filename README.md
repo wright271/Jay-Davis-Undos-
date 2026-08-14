@@ -36,10 +36,11 @@ compared fairly against one who has finished.
 
 1. Open the link, go to **Leaderboard → Admin** (bottom of the page), enter the
    password.
-2. **Tee sheet → Load the Saturday tee sheet.** The Saturday pairings are built
-   into the page: 32 groups, 125 players with their flights and tee times, and
-   the 58 better ball pairings. The first two names in a group are Team 1, the
-   last two are Team 2. The Ladies and Junior groups load as players only.
+2. **Tee sheet → Load the Saturday tee sheet.** The final Saturday pairings are
+   built into the page: 33 groups, 128 players with their flights and tee times,
+   and the 59 better ball pairings. The first two names in a group are Team 1,
+   the last two are Team 2. The Ladies and Junior groups load as players only,
+   and group 15 is a threesome, so its third player has no better ball partner.
 3. Or build it by hand — **Players** to add the field and set flights (or
    **Bulk roster**, one player per line: `Jay Davis, Championship`), then
    **Teams** to pair them.
