@@ -25,6 +25,12 @@ games, so a score is only ever entered once.
 - **Skins** — outright low score on a hole wins it; a tie pushes and nobody
   takes it. Ladies and Junior are not in the game.
 
+  Not everyone pays into the skins, so each player has an **In the skins**
+  tickbox under Admin → Players. Everyone in an eligible flight starts ticked;
+  untick whoever did not pay. **All in** and **None** buttons do the whole field
+  at once. Unticking a player only removes them from the skins — they still
+  appear on the individual leaderboard and in their better ball team.
+
 **A team plays in its stronger player's flight** — a Championship player paired
 with a First flight player makes a Championship team. Ladies and Junior players
 are not offered in the team builder at all.
