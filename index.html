@@ -197,6 +197,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .prow input,.prow select{width:100%;padding:8px 9px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fafbfa}
 .prow input:focus,.prow select:focus{outline:none;border-color:var(--brand);background:#fff}
 .prow .x{border:none;background:transparent;color:var(--over);font-size:17px;font-weight:700;cursor:pointer;padding:4px}
+.prow2{grid-column:1/-1;display:flex;gap:8px;margin-top:2px}
+.prow2 label{flex:1;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
+.prow2 input{flex:1;min-width:0}
 .tcard{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
 .tcard .tc-hd{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 .tcard select{width:100%;padding:8px 9px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fafbfa;margin-bottom:6px}
@@ -947,7 +950,7 @@ function renderAdmin(){
 
   if (adminTab==='players'){
     const list = playerList();
-    html += `<div class="sess-meta">Every player gets a flight. Championship, First and Senior play the individual, the better ball and the skins. <b>Ladies and Junior play the individual only</b> — they cannot be put on a team and are left out of the skins. Edits save instantly for everyone.</div>`;
+    html += `<div class="sess-meta">Set a player's <b>group</b> to put them in a tee time — the tee time fills in automatically from the others already in that group, and they drop onto the end of it. Leave the group blank and they stay off the tee sheet. Every player gets a flight. Championship, First and Senior play the individual, the better ball and the skins. <b>Ladies and Junior play the individual only</b> — they cannot be put on a team and are left out of the skins. Edits save instantly for everyone.</div>`;
     html += `<div style="margin-bottom:10px"><button class="btn" onclick="addPlayer()">+ Add player</button>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">${list.length} in the field</span></div>`;
     list.forEach(x=>{
@@ -957,6 +960,10 @@ function renderAdmin(){
         <input id="pn_${x.id}" value="${esc(x.p.name)}" placeholder="Player name" onchange="setPlayerName('${x.id}',this.value)">
         <select onchange="setPlayerFlight('${x.id}',this.value)">${opts}</select>
         <button class="x" onclick="removePlayer('${x.id}')" title="Remove">&times;</button>
+        <div class="prow2">
+          <label>Group<input type="number" min="0" max="200" value="${x.p.grp||''}" placeholder="—" onchange="setPlayerGrp('${x.id}',this.value)"></label>
+          <label>Tee time<input type="text" value="${esc(x.p.tee||'')}" placeholder="e.g. 10:20 AM" onchange="setPlayerTee('${x.id}',this.value)"></label>
+        </div>
       </div>`;
     });
     if (!list.length) html += `<div class="sess-meta">Nobody added yet.</div>`;
@@ -1126,6 +1133,32 @@ function setPlayerFlight(id, val){
   }
   render();
 }
+/* Put a player in a tee-time group. The tee time comes from whoever is already
+   in that group, so the two never drift apart, and they go on the end of the
+   group rather than displacing anyone. */
+function setPlayerGrp(id, val){
+  const p = state.players[id];
+  if (!p) return;
+  const g = Math.max(0, Math.min(200, parseInt(val) || 0));
+  p.grp = g;
+  const others = playerList().filter(x=>x.id!==id && x.p.grp===g);
+  p.ord = others.length;
+  persist('players/' + id + '/grp', g);
+  persist('players/' + id + '/ord', p.ord);
+  if (g && others.length && others[0].p.tee && !p.tee){
+    p.tee = others[0].p.tee;
+    persist('players/' + id + '/tee', p.tee);
+  }
+  render();
+}
+function setPlayerTee(id, val){
+  const p = state.players[id];
+  if (!p) return;
+  p.tee = String(val || '').trim().slice(0, 20);
+  persist('players/' + id + '/tee', p.tee);
+  render();
+}
+
 function removePlayer(id){
   const p = state.players[id];
   if (!confirm('Remove ' + ((p&&p.name)||'this player') + ' and their scores?')) return;

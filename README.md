@@ -44,6 +44,10 @@ compared fairly against one who has finished.
 3. Or build it by hand — **Players** to add the field and set flights (or
    **Bulk roster**, one player per line: `Jay Davis, Championship`), then
    **Teams** to pair them.
+
+   A late addition does not need the sheet reloaded. Add them under
+   **Players**, set their **Group** — the tee time fills in from the others in
+   that group and they go on the end of it — then pair them under **Teams**.
 4. **Course / Par** — adjust par per hole if needed (defaults to par 72).
 5. **Tee Times → SCORE** on a group. One card holds the whole foursome — a
    column per player, a row per hole — so one person keeps the card for the
