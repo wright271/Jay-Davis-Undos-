@@ -52,8 +52,10 @@ compared fairly against one who has finished.
    **Teams** to pair them.
 
    A late addition does not need the sheet reloaded. Add them under
-   **Players**, set their **Group** — the tee time fills in from the others in
-   that group and they go on the end of it — then pair them under **Teams**.
+   **Players**, pick their **Group** from the dropdown — it lists every group
+   with its tee time, and the time is taken from the group automatically — then
+   pair them under **Teams**. Moving a player between groups moves their tee
+   time with them.
 4. **Course / Par** — adjust par per hole if needed (defaults to par 72).
 5. **Tee Times → SCORE** on a group. One card holds the whole foursome — a
    column per player, a row per hole — so one person keeps the card for the

@@ -201,8 +201,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .chk input{width:19px;height:19px;accent-color:var(--brand);flex:0 0 19px}
 .chk.off{color:var(--faint);cursor:default}
 .prow2{grid-column:1/-1;display:flex;gap:8px;margin-top:2px}
-.prow2 label{flex:1;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
-.prow2 input{flex:1;min-width:0}
+.prow2 label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.prow2 input,.prow2 select{flex:1;min-width:0;padding:8px 6px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fafbfa}
 .tcard{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
 .tcard .tc-hd{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 .tcard select{width:100%;padding:8px 9px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fafbfa;margin-bottom:6px}
@@ -952,6 +952,28 @@ function renderTees(){
   return html;
 }
 
+function grpOpts(p){
+  let o = `<option value="" ${!p.grp?'selected':''}>— none —</option>`;
+  const groups = groupsInUse();
+  let found = false;
+  groups.forEach(g=>{
+    if (g.n === p.grp) found = true;
+    o += `<option value="${g.n}" ${g.n===p.grp?'selected':''}>${g.n}${g.tee?' &middot; '+esc(g.tee):''}</option>`;
+  });
+  if (p.grp && !found) o += `<option value="${p.grp}" selected>${p.grp}</option>`;
+  o += `<option value="__new">New group&hellip;</option>`;
+  return o;
+}
+function teeOpts(p){
+  let o = `<option value="" ${!p.tee?'selected':''}>— none —</option>`;
+  const times = teeTimesInUse();
+  if (p.tee && times.indexOf(p.tee) < 0) times.push(p.tee);
+  times.sort((a,b)=>teeMinutes(a)-teeMinutes(b));
+  times.forEach(t=>{ o += `<option value="${esc(t)}" ${t===p.tee?'selected':''}>${esc(t)}</option>`; });
+  o += `<option value="__other">Other&hellip;</option>`;
+  return o;
+}
+
 function renderAdmin(){
   let html = `<button class="aback" onclick="go('board')">&#8592; Leaderboard</button>`;
   if (!adminOk){
@@ -973,7 +995,7 @@ function renderAdmin(){
 
   if (adminTab==='players'){
     const list = playerList();
-    html += `<div class="sess-meta">Set a player's <b>group</b> to put them in a tee time — the tee time fills in automatically from the others already in that group, and they drop onto the end of it. Leave the group blank and they stay off the tee sheet. Every player gets a flight. Championship, First and Senior play the individual, the better ball and the skins. <b>Ladies and Junior play the individual only</b> — they cannot be put on a team and are left out of the skins. Edits save instantly for everyone.</div>`;
+    html += `<div class="sess-meta">Pick a player's <b>group</b> to put them in a tee time — the tee time fills in automatically from the others already in that group, and they drop onto the end of it. Leave the group blank and they stay off the tee sheet. Every player gets a flight. Championship, First and Senior play the individual, the better ball and the skins. <b>Ladies and Junior play the individual only</b> — they cannot be put on a team and are left out of the skins. Edits save instantly for everyone.</div>`;
     const inSkins = skinsField().length, canSkins = skinsPossible().length;
     html += `<div style="margin-bottom:10px"><button class="btn" onclick="addPlayer()">+ Add player</button>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">${list.length} in the field</span></div>`;
@@ -992,8 +1014,8 @@ function renderAdmin(){
         <select onchange="setPlayerFlight('${x.id}',this.value)">${opts}</select>
         <button class="x" onclick="removePlayer('${x.id}')" title="Remove">&times;</button>
         <div class="prow2">
-          <label>Group<input type="number" min="0" max="200" value="${x.p.grp||''}" placeholder="—" onchange="setPlayerGrp('${x.id}',this.value)"></label>
-          <label>Tee time<input type="text" value="${esc(x.p.tee||'')}" placeholder="e.g. 10:20 AM" onchange="setPlayerTee('${x.id}',this.value)"></label>
+          <label>Group<select onchange="pickPlayerGrp('${x.id}',this.value)">${grpOpts(x.p)}</select></label>
+          <label>Tee<select onchange="pickPlayerTee('${x.id}',this.value)">${teeOpts(x.p)}</select></label>
         </div>
         <label class="chk ${skinsFlightOk(x.p)?'':'off'}">
           <input type="checkbox" ${x.p.skins!==false?'checked':''} ${skinsFlightOk(x.p)?'':'disabled'} onchange="setPlayerSkins('${x.id}',this.checked)">
@@ -1180,12 +1202,40 @@ function setPlayerGrp(id, val){
   p.ord = others.length;
   persist('players/' + id + '/grp', g);
   persist('players/' + id + '/ord', p.ord);
-  if (g && others.length && others[0].p.tee && !p.tee){
-    p.tee = others[0].p.tee;
-    persist('players/' + id + '/tee', p.tee);
+  /* Take the time from the group being joined. Moving a player from the 7:50
+     to the 10:20 has to move their tee time as well, or the sheet shows them
+     in one group at another group's time. */
+  const tee = g && others.length ? (others[0].p.tee || '') : '';
+  if (tee !== p.tee){
+    p.tee = tee;
+    persist('players/' + id + '/tee', tee);
   }
   render();
 }
+/* Sort tee times by the clock rather than alphabetically, so 07:50 AM comes
+   before 10:20 AM and the afternoon follows the morning. */
+function teeMinutes(t){
+  const m = /^(\d{1,2}):(\d{2})\s*([AP])M$/i.exec(String(t||'').trim());
+  if (!m) return 1e9;
+  let h = parseInt(m[1], 10) % 12;
+  if (m[3].toUpperCase() === 'P') h += 12;
+  return h * 60 + parseInt(m[2], 10);
+}
+function teeTimesInUse(){
+  const seen = {};
+  playerList().forEach(x=>{ if (x.p.tee) seen[x.p.tee] = true; });
+  return Object.keys(seen).sort((a,b)=>teeMinutes(a)-teeMinutes(b));
+}
+/** Groups already on the sheet, each with the time it goes out. */
+function groupsInUse(){
+  const g = {};
+  playerList().forEach(x=>{
+    if (!x.p.grp) return;
+    if (!g[x.p.grp]) g[x.p.grp] = x.p.tee || '';
+  });
+  return Object.keys(g).map(Number).sort((a,b)=>a-b).map(n=>({ n: n, tee: g[n] }));
+}
+
 function setPlayerSkins(id, on){
   const p = state.players[id];
   if (!p) return;
@@ -1203,6 +1253,25 @@ function setAllSkins(on){
     persist('players/' + x.id + '/skins', !!on);
   });
   render();
+}
+
+function pickPlayerGrp(id, val){
+  if (val === '__new'){
+    const v = prompt('Group number for this player');
+    if (v === null){ render(); return; }
+    setPlayerGrp(id, v);
+    return;
+  }
+  setPlayerGrp(id, val);
+}
+function pickPlayerTee(id, val){
+  if (val === '__other'){
+    const v = prompt('Tee time, e.g. 10:20 AM');
+    if (v === null){ render(); return; }
+    setPlayerTee(id, v);
+    return;
+  }
+  setPlayerTee(id, val);
 }
 
 function setPlayerTee(id, val){
