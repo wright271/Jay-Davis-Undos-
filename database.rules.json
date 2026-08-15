@@ -56,6 +56,71 @@
           }
         }
       }
+    },
+    "undos-day2": {
+      ".read": true,
+      ".write": true,
+      "eventName": {
+        ".validate": "newData.isString() && newData.val().length <= 120"
+      },
+      "par": {
+        "$hole": {
+          ".validate": "newData.isNumber() && newData.val() >= 3 && newData.val() <= 6"
+        }
+      },
+      "players": {
+        "$playerId": {
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 60"
+          },
+          "flight": {
+            ".validate": "newData.val() == 'championship' || newData.val() == 'first' || newData.val() == 'senior' || newData.val() == 'ladies' || newData.val() == 'junior'"
+          },
+          "scores": {
+            "$hole": {
+              ".validate": "$hole.matches(/^h([0-9]|1[0-7])$/) && newData.isNumber() && newData.val() >= 1 && newData.val() <= 20"
+            }
+          },
+          "tee": {
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+          "grp": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200"
+          },
+          "ord": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10"
+          },
+          "skins": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "teams": {
+        "$teamId": {
+          "a": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "b": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "undos-meta": {
+      ".read": true,
+      ".write": true,
+      "activeDay": {
+        ".validate": "newData.val() == 'day1' || newData.val() == 'day2'"
+      },
+      "$other": {
+        ".validate": false
+      }
     }
   }
 }

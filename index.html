@@ -94,6 +94,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .brow.lead{border-left-color:var(--gold)}
 .g3{grid-template-columns:22px minmax(0,1fr) auto}
 .g4{grid-template-columns:22px minmax(0,1fr) 46px 46px}
+.g5{grid-template-columns:20px minmax(0,1fr) 34px 34px 52px}
+.dayswitch{display:flex;gap:0;background:var(--board-hd);border-radius:8px;overflow:hidden;margin:12px 0 4px}
+.dayb{flex:1;padding:10px 4px;border:none;background:transparent;color:#8fb3a0;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;border-bottom:3px solid transparent}
+.dayb.on{color:#fff;background:var(--board);border-bottom-color:var(--gold)}
 .gs{grid-template-columns:44px 52px minmax(0,1fr) 44px}
 .bnum{font-size:13px;font-weight:700;color:var(--dim)}
 .brow.lead .bnum{color:var(--gold)}
@@ -241,7 +245,9 @@ const firebaseConfig = {
   messagingSenderId: "982252725642",
   appId: "1:982252725642:web:9d7f96b5ae7b73937d5473"
 };
-const DB_PATH = 'undos';              // must match the key in your database rules
+const DB_PATH = 'undos';              // Saturday — must match the key in your database rules
+const DAY2_PATH = 'undos-day2';       // Sunday, written only once Day 2 is started
+const META_PATH = 'undos-meta';       // holds which day the whole field is on
 const ADMIN_PASSWORD = "davis";       // committee password for the Admin screen
 /* ============================================================ */
 
@@ -309,12 +315,23 @@ const TEE_SHEET = [
   { g:33, t:"02:20 PM", p:[["Clay Bethel","first"],["Ethan Bethel","first"],["Issac Depew","championship"],["Adam Gill","championship"]] }
 ];
 
+const DAY_KEYS   = { day1: DB_PATH, day2: DAY2_PATH };
+const DAY_LABELS = { day1: 'Saturday', day2: 'Sunday' };
+const DAY_SHORT  = { day1: 'R1', day2: 'R2' };
+
 function defaultState(){
   return { eventName: EVENT_DEFAULT, par: PAR_DEFAULT.slice(), players: {}, teams: {} };
 }
 
-/* ---------- Firebase / local fallback ---------- */
-let state = defaultState();
+/* ---------- Firebase / local fallback ----------
+   Each day lives under its own key. Saturday is `undos` and is never written
+   again once the field moves to Sunday, which is what freezes it. Both days
+   are read at all times so the leaderboard can total the two together, but
+   only the active day is ever written to. */
+let days = { day1: defaultState(), day2: defaultState() };
+let state = days.day1;
+let activeDay = 'day1';
+let day2Exists = false;
 let db = null, ref = null, online = false;
 const localMode = firebaseConfig.apiKey.indexOf("PASTE") === 0;
 
@@ -329,16 +346,15 @@ if (!localMode){
     firebase.initializeApp(firebaseConfig);
     db = firebase.database();
     ref = db.ref(DB_PATH);
-    ref.on('value', snap=>{
-      const v = snap.val();
-      if (v === null){ ref.set(state); return; }
-      const incoming = normalize(v);
-      if (JSON.stringify(incoming) === JSON.stringify(state)) return;
-      state = incoming;
-      renderPreservingFocus();
-    }, err=>{
-      setConn(false, 'RULES BLOCKED — SEE ADMIN');
-    });
+
+    watchDay('day1');
+    /* Sunday's key and the day switch may not exist or be permitted yet. Both
+       listeners fail quietly so that a rules file without them cannot disturb
+       a round already being scored. */
+    watchDay('day2');
+    db.ref(META_PATH + '/activeDay').on('value', snap=>{
+      setActiveDay(snap.val() === 'day2' ? 'day2' : 'day1');
+    }, err=>{ /* not readable yet — stay on Saturday */ });
     db.ref('.info/connected').on('value', s=>{
       online = !!s.val();
       setConn(online, online ? 'LIVE SYNC' : 'OFFLINE — RETRYING');
@@ -347,8 +363,44 @@ if (!localMode){
     setConn(false,'SYNC ERROR');
   }
 } else {
-  try{ const s = localStorage.getItem(DB_PATH); if (s) state = normalize(JSON.parse(s)); }catch(e){}
+  try{ const s = localStorage.getItem(DB_PATH); if (s){ days.day1 = normalize(JSON.parse(s)); state = days.day1; } }catch(e){}
   setConn(false,'LOCAL ONLY — NO SYNC');
+}
+
+function watchDay(id){
+  const r = db.ref(DAY_KEYS[id]);
+  r.on('value', snap=>{
+    const v = snap.val();
+    /* Saturday seeds itself on a fresh database. Sunday never does — it is
+       created deliberately from Admin, so a missing key just means Day 2 has
+       not been started. */
+    if (v === null){
+      if (id === 'day1'){ r.set(days.day1); return; }
+      day2Exists = false;
+      days.day2 = defaultState();
+      if (activeDay === 'day2') state = days.day2;
+      renderPreservingFocus();
+      return;
+    }
+    if (id === 'day2') day2Exists = true;
+    const incoming = normalize(v);
+    if (JSON.stringify(incoming) === JSON.stringify(days[id])) return;
+    days[id] = incoming;
+    if (id === activeDay) state = days[id];
+    renderPreservingFocus();
+  }, err=>{
+    if (id === 'day1') setConn(false, 'RULES BLOCKED — SEE ADMIN');
+    /* Day 2 unreadable simply means the rules have not been published yet. */
+  });
+}
+
+function setActiveDay(d){
+  const next = (d === 'day2') ? 'day2' : 'day1';
+  if (next === activeDay) return;
+  activeDay = next;
+  state = days[activeDay];
+  boardDay = (activeDay === 'day2') ? 'total' : 'day1';
+  render();
 }
 
 /* Firebase drops empty objects and turns sparse arrays into maps — rebuild the shape */
@@ -392,10 +444,10 @@ function normalize(v){
 }
 
 function persist(path, value){
-  if (!localMode && ref){
-    db.ref(DB_PATH + (path ? '/' + path : '')).set(value);
+  if (!localMode && db){
+    db.ref(DAY_KEYS[activeDay] + (path ? '/' + path : '')).set(value);
   } else {
-    try{ localStorage.setItem(DB_PATH, JSON.stringify(state)); }catch(e){}
+    try{ localStorage.setItem(DAY_KEYS[activeDay], JSON.stringify(state)); }catch(e){}
   }
 }
 let idSeq = 0;
@@ -461,6 +513,93 @@ function cardOff(a, b){
   }
   return 0;
 }
+/* ---------- Two-day scoring ----------
+   playerResult above works on the active day and drives scoring, the tee
+   sheet and the skins. The leaderboard needs any day, or both added together,
+   so it goes through these instead. Each day keeps its own par, so a change
+   to the card on Sunday cannot rewrite Saturday's score to par. */
+function roundFor(pid, dayId){
+  const st = days[dayId];
+  const p = st && st.players ? st.players[pid] : null;
+  if (!p) return { strokes:0, parSum:0, thru:0, toPar:0, done:false, played:false };
+  let strokes=0, parSum=0, thru=0;
+  for (let h=0; h<NUM_HOLES; h++){
+    const v = parseInt((p.scores||{})['h'+h]);
+    if (v>0){ strokes+=v; parSum+=st.par[h]; thru++; }
+  }
+  return { strokes, parSum, thru, toPar: thru?strokes-parSum:0, done: thru===NUM_HOLES, played: thru>0 };
+}
+/* mode is 'total', 'day1' or 'day2'. */
+function resultFor(pid, mode){
+  if (mode !== 'total') return roundFor(pid, mode);
+  const a = roundFor(pid, 'day1'), b = roundFor(pid, 'day2');
+  const thru = a.thru + b.thru, strokes = a.strokes + b.strokes, parSum = a.parSum + b.parSum;
+  return { strokes, parSum, thru, toPar: thru?strokes-parSum:0, done: a.done && b.done, played: thru>0, r1:a, r2:b };
+}
+function teamRoundFor(t, dayId){
+  const st = days[dayId];
+  const ids = [t.a, t.b].filter(id=>id && st.players && st.players[id]);
+  let strokes=0, parSum=0, thru=0;
+  for (let h=0; h<NUM_HOLES; h++){
+    let best = null;
+    ids.forEach(id=>{
+      const v = parseInt((st.players[id].scores||{})['h'+h]);
+      if (v>0 && (best===null || v<best)) best = v;
+    });
+    if (best!==null){ strokes+=best; parSum+=st.par[h]; thru++; }
+  }
+  return { strokes, parSum, thru, toPar: thru?strokes-parSum:0, done: thru===NUM_HOLES, played: thru>0 };
+}
+function teamResultFor(t, mode){
+  if (mode !== 'total') return teamRoundFor(t, mode);
+  const a = teamRoundFor(t, 'day1'), b = teamRoundFor(t, 'day2');
+  const thru = a.thru + b.thru, strokes = a.strokes + b.strokes, parSum = a.parSum + b.parSum;
+  return { strokes, parSum, thru, toPar: thru?strokes-parSum:0, done: a.done && b.done, played: thru>0, r1:a, r2:b };
+}
+/* Matching cards on the most recent round played, then the one before. */
+function cardOffDays(pidA, pidB, mode){
+  const order = mode === 'total' ? ['day2','day1'] : [mode];
+  for (let i=0;i<order.length;i++){
+    const st = days[order[i]];
+    const a = st.players[pidA], b = st.players[pidB];
+    if (!a || !b) continue;
+    const d = cardOffIn(a, b, st);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+function cardOffIn(a, b, st){
+  const seg = [[9,18],[12,18],[15,18],[17,18]];
+  for (let s=0;s<seg.length;s++){
+    let av=0, an=0, bv=0, bn=0;
+    for (let h=seg[s][0]; h<seg[s][1]; h++){
+      const x = parseInt((a.scores||{})['h'+h]), y = parseInt((b.scores||{})['h'+h]);
+      if (x>0){ av+=x; an++; }
+      if (y>0){ bv+=y; bn++; }
+    }
+    if (an===0 || bn===0) continue;
+    if (av!==bv) return av-bv;
+  }
+  return 0;
+}
+function rankPlayersBy(list, mode){
+  return list.slice().sort((x,y)=>{
+    const a = resultFor(x.id, mode), b = resultFor(y.id, mode);
+    if (a.played !== b.played) return a.played ? -1 : 1;
+    if (a.toPar !== b.toPar) return a.toPar - b.toPar;
+    if (a.thru !== b.thru) return b.thru - a.thru;
+    return cardOffDays(x.id, y.id, mode);
+  });
+}
+function rankTeamsBy(list, mode){
+  return list.slice().sort((x,y)=>{
+    const a = teamResultFor(x.t, mode), b = teamResultFor(y.t, mode);
+    if (a.played !== b.played) return a.played ? -1 : 1;
+    if (a.toPar !== b.toPar) return a.toPar - b.toPar;
+    return b.thru - a.thru;
+  });
+}
+
 /* Rank on score to par, not raw strokes: mid-round a player thru 9 has a
    smaller total than one who has finished, and sorting on the total alone
    would put them ahead. To par compares the two fairly. */
@@ -560,6 +699,7 @@ function skinsWonBy(rows, id){
 /* ---------- View state ---------- */
 let view = 'tees';            // tees | board | skins | admin
 let boardTab = 'better';      // which leaderboard: better | individual
+let boardDay = 'day1';        // what the leaderboard totals: total | day1 | day2
 let scoringGrp = null;        // group number being scored
 let skinsHole = null;
 let adminOk = false;
@@ -578,7 +718,7 @@ function render(){
     <div class="hdr-brand">
       <div class="hdr-txt">
         <div class="hdr-title">${esc(state.eventName)}</div>
-        <div class="hdr-sub">${esc(COURSE_NAME)}<br>${esc(COURSE_LOCATION)} &middot; par ${totalPar()}</div>
+        <div class="hdr-sub">${esc(COURSE_NAME)}<br>${esc(COURSE_LOCATION)} &middot; par ${totalPar()}${(activeDay==='day2'||day2Exists)?' &middot; '+esc(DAY_LABELS[activeDay]):''}</div>
       </div>
     </div>
     <div class="sponsors">
@@ -631,11 +771,28 @@ function renderLeaderboard(){
     <button class="subtab ${boardTab==='individual'?'on':''}" onclick="setBoardTab('individual')">Individual</button>
   </div>`;
   html += (boardTab === 'individual') ? renderIndividual() : renderTeams();
+  html += renderDaySwitch();
   html += `<div class="admin-wrap"><button class="admin-btn" onclick="go('admin')">
     <svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
       <rect x="1" y="5.5" width="9" height="6.5" rx="1.2"></rect><path d="M3.2 5.5V3.6a2.3 2.3 0 0 1 4.6 0v1.9"></path>
     </svg>Admin</button></div>`;
   return html;
+}
+
+/* Only worth showing once Sunday is under way — until then there is one round
+   and nothing to switch between. */
+function renderDaySwitch(){
+  if (activeDay !== 'day2' && !day2Exists) return '';
+  const opt = (id, label) => `<button class="dayb ${boardDay===id?'on':''}" onclick="setBoardDay('${id}')">${label}</button>`;
+  return `<div class="dayswitch">
+    ${opt('total','36-hole total')}${opt('day1','Saturday')}${opt('day2','Sunday')}
+  </div>`;
+}
+function setBoardDay(d){ boardDay = d; render(); }
+
+/* The leaderboard shows both rounds and the total once Sunday exists. */
+function boardCols(){
+  return (boardDay === 'total' && (activeDay === 'day2' || day2Exists));
 }
 
 function renderIndividual(){
@@ -645,31 +802,39 @@ function renderIndividual(){
   }
   let html = `<div class="banner">Every player turns in an individual card. Those same scores feed the better ball and the skins, so a score is only ever entered once. <b>Scores are entered from the Tee Times tab — one card per group.</b></div>`;
 
+  const wide = boardCols();
   FLIGHTS.forEach(f=>{
-    const rows = rankPlayers(all.filter(x=>x.p.flight===f.id));
+    const rows = rankPlayersBy(all.filter(x=>x.p.flight===f.id), boardDay);
     if (!rows.length) return;
     html += `<div class="board">
       <div class="board-hd"><span class="t">${esc(f.label)} Flight</span><span class="r">${rows.length} player${rows.length===1?'':'s'}${f.team?'':' &middot; individual only'}</span></div>
-      <div class="bhd g4"><span></span><span>Player</span><span style="text-align:right">Score</span><span style="text-align:right">Thru</span></div>`;
+      ${wide
+        ? `<div class="bhd g5"><span></span><span>Player</span><span style="text-align:right">R1</span><span style="text-align:right">R2</span><span style="text-align:right">Total</span></div>`
+        : `<div class="bhd g4"><span></span><span>Player</span><span style="text-align:right">Score</span><span style="text-align:right">Thru</span></div>`}`;
     rows.forEach((x,i)=>{
-      const r = playerResult(x.p);
-      const lead = i===0 && r.thru>0;
-      let score, thru;
-      if (r.thru>0){
-        score = `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div>`;
-        thru = `<div class="bgross">${r.done?'F':r.thru}</div>`;
-      } else {
-        score = `<div class="bgross">—</div>`;
-        thru = `<div class="bgross">—</div>`;
-      }
-      html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
-        <div class="bnum">${r.thru>0 ? (i+1) : '—'}</div>
-        <div>
+      const r = resultFor(x.id, boardDay);
+      const lead = i===0 && r.played;
+      const name = `<div>
           <div class="bname">${esc(x.p.name||'Unnamed')}</div>
           ${x.p.tee ? `<div class="bsub">${esc(x.p.tee)}${x.p.grp?' &middot; grp '+x.p.grp:''}</div>` : ''}
-        </div>
-        ${score}${thru}
-      </div>`;
+        </div>`;
+      if (wide){
+        html += `<div class="brow g5 ${lead?'lead':''} ${i%2?'alt':''}">
+          <div class="bnum">${r.played ? (i+1) : '—'}</div>
+          ${name}
+          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}</div>
+          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}</div>
+          <div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${r.played?r.strokes:''}</span></div>
+        </div>`;
+      } else {
+        html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
+          <div class="bnum">${r.played ? (i+1) : '—'}</div>
+          ${name}
+          ${r.played
+            ? `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div><div class="bgross">${r.done?'F':r.thru}</div>`
+            : `<div class="bgross">—</div><div class="bgross">—</div>`}
+        </div>`;
+      }
     });
     html += `</div>`;
   });
@@ -687,33 +852,41 @@ function renderTeams(){
     html += `<div class="board"><div class="bfoot">No teams yet — build the pairings in <b>Admin</b>.</div></div>`;
   }
 
+  const wide = boardCols();
   FLIGHTS.filter(f=>f.team).forEach(f=>{
-    const rows = rankTeams(good.filter(x=>teamFlight(x.t)===f.id));
+    const rows = rankTeamsBy(good.filter(x=>teamFlight(x.t)===f.id), boardDay);
     if (!rows.length) return;
     html += `<div class="board">
       <div class="board-hd"><span class="t">${esc(f.label)} Flight</span><span class="r">${rows.length} team${rows.length===1?'':'s'}</span></div>
-      <div class="bhd g4"><span></span><span>Team</span><span style="text-align:right">Score</span><span style="text-align:right">Thru</span></div>`;
+      ${wide
+        ? `<div class="bhd g5"><span></span><span>Team</span><span style="text-align:right">R1</span><span style="text-align:right">R2</span><span style="text-align:right">Total</span></div>`
+        : `<div class="bhd g4"><span></span><span>Team</span><span style="text-align:right">Score</span><span style="text-align:right">Thru</span></div>`}`;
     rows.forEach((x,i)=>{
-      const r = teamResult(x.t);
+      const r = teamResultFor(x.t, boardDay);
       const ms = teamMembers(x.t);
       const nm = ms.map(m=>lastName(m.p.name)||m.p.name).filter(Boolean).join(' / ') || 'Team';
-      const lead = i===0 && r.thru>0;
-      let score, thru;
-      if (r.thru>0){
-        score = `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div>`;
-        thru = `<div class="bgross">${r.done?'F':r.thru}</div>`;
-      } else {
-        score = `<div class="bgross">—</div>`;
-        thru = `<div class="bgross">—</div>`;
-      }
-      html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
-        <div class="bnum">${r.thru>0 ? (i+1) : '—'}</div>
-        <div>
+      const lead = i===0 && r.played;
+      const name = `<div>
           <div class="bname">${esc(nm)}</div>
           <div class="bsub">${esc(ms.map(m=>m.p.name).filter(Boolean).join('  +  '))}</div>
-        </div>
-        ${score}${thru}
-      </div>`;
+        </div>`;
+      if (wide){
+        html += `<div class="brow g5 ${lead?'lead':''} ${i%2?'alt':''}">
+          <div class="bnum">${r.played ? (i+1) : '—'}</div>
+          ${name}
+          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}</div>
+          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}</div>
+          <div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${r.played?r.strokes:''}</span></div>
+        </div>`;
+      } else {
+        html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
+          <div class="bnum">${r.played ? (i+1) : '—'}</div>
+          ${name}
+          ${r.played
+            ? `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div><div class="bgross">${r.done?'F':r.thru}</div>`
+            : `<div class="bgross">—</div><div class="bgross">—</div>`}
+        </div>`;
+      }
     });
     html += `</div>`;
   });
@@ -984,6 +1157,7 @@ function renderAdmin(){
     </div>`;
   }
   html += `<div class="atabs">
+    <button class="atab ${adminTab==='day'?'on':''}" onclick="setAtab('day')">Day</button>
     <button class="atab ${adminTab==='players'?'on':''}" onclick="setAtab('players')">Players</button>
     <button class="atab ${adminTab==='teams'?'on':''}" onclick="setAtab('teams')">Teams</button>
     <button class="atab ${adminTab==='sheet'?'on':''}" onclick="setAtab('sheet')">Tee sheet</button>
@@ -992,6 +1166,26 @@ function renderAdmin(){
     <button class="atab ${adminTab==='event'?'on':''}" onclick="setAtab('event')">Event</button>
     <button class="atab ${adminTab==='reset'?'on':''}" onclick="setAtab('reset')">Reset</button>
   </div>`;
+
+  if (adminTab==='day'){
+    const d1 = Object.keys(days.day1.players).length;
+    const d2 = Object.keys(days.day2.players).length;
+    html += `<div class="sess-meta">The field is scoring <b>${esc(DAY_LABELS[activeDay])}</b>. Each day is stored separately — moving to Sunday leaves Saturday untouched and every phone follows within a second. The leaderboard adds the two rounds together.</div>`;
+    html += `<div class="reset-row"><span>Saturday<br><small style="font-weight:500;color:var(--muted)">${d1} players${activeDay==='day1'?' &middot; being scored now':' &middot; finished'}</small></span>
+      ${activeDay==='day1' ? '<b style="color:var(--brand);font-size:12px">ACTIVE</b>' : `<button class="btn ghost sm" onclick="switchDay('day1')">Go back</button>`}</div>`;
+    html += `<div class="reset-row"><span>Sunday<br><small style="font-weight:500;color:var(--muted)">${day2Exists ? d2 + ' players' : 'not started'}</small></span>
+      ${activeDay==='day2' ? '<b style="color:var(--brand);font-size:12px">ACTIVE</b>' : (day2Exists ? `<button class="btn sm" onclick="switchDay('day2')">Switch the field to Sunday</button>` : '')}</div>`;
+
+    if (!day2Exists){
+      html += `<div class="banner"><b>Starting Sunday</b> copies every player and better ball team across with the same names, flights and partners, and <b>no scores</b>. Saturday is left exactly as it is. Do this once Saturday's cards are all in.</div>`;
+      html += `<div style="margin:12px 0"><button class="btn" onclick="startDay2()">Start Sunday from Saturday's field</button></div>`;
+    } else if (activeDay === 'day1'){
+      html += `<div class="banner">Sunday is set up with ${d2} players. <b>Switch the field to Sunday</b> when you are ready — every phone moves over and scoring goes into Sunday's card.</div>`;
+      html += `<div style="margin:12px 0"><button class="btn danger sm" onclick="rebuildDay2()">Rebuild Sunday from Saturday</button>
+        <span style="font-size:12px;color:var(--muted);margin-left:8px">wipes Sunday's scores</span></div>`;
+    }
+    html += `<div class="sess-meta">Sunday's tee times are set under <b>Players</b> once the sheet is out — the groups from Saturday come across, so change only what moves.</div>`;
+  }
 
   if (adminTab==='players'){
     const list = playerList();
@@ -1357,6 +1551,58 @@ function loadTeeSheet(){
   render();
 }
 
+/* Build Sunday from Saturday. Player ids are carried over deliberately: the
+   two-day total is matched on id, so a fresh import with new ids would leave
+   every player looking like two different people and no carryover at all.
+   Partners and flights come across; scores do not. */
+/* A write to Sunday's key or to the day switch is rejected until the updated
+   rules are published. Firebase reports that on the promise, so say so out
+   loud rather than leaving the committee thinking it worked. */
+function writeOrWarn(path, value, what){
+  if (!db) return;
+  db.ref(path).set(value).catch(e=>{
+    alert(what + " could not be saved.\n\n" + ((e && e.message) ? e.message : e) +
+      "\n\nPublish the updated database rules in the Firebase console, then try again.");
+  });
+}
+
+function buildDay2(){
+  const src = days.day1, out = { eventName: src.eventName, par: src.par.slice(), players: {}, teams: {} };
+  Object.keys(src.players).forEach(id=>{
+    const p = src.players[id];
+    out.players[id] = { name: p.name, flight: p.flight, tee: p.tee || '', grp: p.grp || 0, ord: p.ord || 0, skins: true, scores: {} };
+  });
+  Object.keys(src.teams).forEach(id=>{ out.teams[id] = { a: src.teams[id].a, b: src.teams[id].b }; });
+  return out;
+}
+function startDay2(){
+  const n = Object.keys(days.day1.players).length;
+  if (!n){ alert('Saturday has no players to copy.'); return; }
+  if (!confirm('Set Sunday up with ' + n + " players and their partners from Saturday? Saturday is not changed, and nobody moves over until you switch the field.")) return;
+  const out = buildDay2();
+  writeOrWarn(DAY2_PATH, out, 'Sunday');
+  days.day2 = normalize(out);
+  day2Exists = true;
+  render();
+}
+function rebuildDay2(){
+  if (!confirm("Rebuild Sunday from Saturday's field? Any scores already posted to Sunday are wiped.")) return;
+  const out = buildDay2();
+  writeOrWarn(DAY2_PATH, out, 'Sunday');
+  days.day2 = normalize(out);
+  day2Exists = true;
+  render();
+}
+/* One switch moves the whole field. Held centrally on purpose — a setting on
+   each phone would let one scorer post Sunday's card into Saturday. */
+function switchDay(d){
+  const label = DAY_LABELS[d];
+  if (!confirm('Move the whole field to ' + label + "? Every phone follows, and scoring goes into " + label + "'s card.")) return;
+  writeOrWarn(META_PATH + '/activeDay', d, 'The day switch');
+  setActiveDay(d);
+  render();
+}
+
 function fillBulk(){
   const lines = playerList().map(x=>`${x.p.name}, ${flightLabel(x.p.flight)}`);
   document.getElementById('bulkbox').value = lines.join('\n');
@@ -1401,7 +1647,7 @@ function clearTeams(){
 function clearAll(){
   if (!confirm('Full reset — wipe players, teams and scores?')) return;
   state = defaultState();
-  if (!localMode && ref) ref.set(state); else persist('', null);
+  if (!localMode && db) db.ref(DAY_KEYS[activeDay]).set(state); else persist('', null);
   render();
 }
 
