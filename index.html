@@ -108,6 +108,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .bnet.over{color:var(--dn)}
 .bnet.even{color:#fff}
 .bgross{text-align:right;font-size:13px;font-weight:700;color:var(--mid)}
+.bgross.under{color:var(--up)}
+.bgross.over{color:var(--dn)}
+.bgross.even{color:#fff}
+.bgross.strokes{color:#fff}
 .bthru{display:block;font-size:9.5px;font-weight:600;color:var(--dim);margin-top:2px}
 .bpend{display:inline-block;font-size:10px;font-weight:700;color:var(--dim);border:1px dashed rgba(255,255,255,.22);padding:3px 10px;border-radius:11px;white-space:nowrap}
 .bfoot{padding:9px 12px;background:var(--board-hd);font-size:10.5px;color:var(--dim);line-height:1.45}
@@ -792,6 +796,21 @@ function renderDaySwitch(){
 function setBoardDay(d){ boardDay = d; render(); }
 
 /* The leaderboard shows both rounds and the total once Sunday exists. */
+/* A round in progress reads to par with the holes played, because a running
+   stroke count means nothing until the card is finished. Once it is finished
+   the number that matters is the score itself, so the cell switches to the
+   total. */
+function roundCell(r){
+  if (!r.played) return `<div class="bgross">—<span class="bthru">to play</span></div>`;
+  if (r.done)    return `<div class="bgross strokes">${r.strokes}</div>`;
+  return `<div class="bgross ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">thru ${r.thru}</span></div>`;
+}
+/* The two-day total carries its stroke count only once both rounds are in. */
+function totalCell(r){
+  const complete = r.r1 && r.r2 && r.r1.done && r.r2.done;
+  return `<div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${complete?r.strokes:''}</span></div>`;
+}
+
 function boardCols(){
   return (boardDay === 'total' && (activeDay === 'day2' || day2Exists));
 }
@@ -823,16 +842,16 @@ function renderIndividual(){
         html += `<div class="brow g5 ${lead?'lead':''} ${i%2?'alt':''}">
           <div class="bnum">${r.played ? (i+1) : '—'}</div>
           ${name}
-          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}${r.r1.played&&!r.r1.done?`<span class="bthru">${r.r1.thru}</span>`:''}</div>
-          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}<span class="bthru">${r.r2.played?(r.r2.done?'F':'thru '+r.r2.thru):'to play'}</span></div>
-          <div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${r.played?r.strokes:''}</span></div>
+          ${roundCell(r.r1)}
+          ${roundCell(r.r2)}
+          ${totalCell(r)}
         </div>`;
       } else {
         html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
           <div class="bnum">${r.played ? (i+1) : '—'}</div>
           ${name}
           ${r.played
-            ? `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div><div class="bgross">${r.done?'F':r.thru}</div>`
+            ? `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.done?r.strokes:''}</span></div><div class="bgross">${r.done?'F':r.thru}</div>`
             : `<div class="bgross">—</div><div class="bgross">—</div>`}
         </div>`;
       }
@@ -875,16 +894,16 @@ function renderTeams(){
         html += `<div class="brow g5 ${lead?'lead':''} ${i%2?'alt':''}">
           <div class="bnum">${r.played ? (i+1) : '—'}</div>
           ${name}
-          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}${r.r1.played&&!r.r1.done?`<span class="bthru">${r.r1.thru}</span>`:''}</div>
-          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}<span class="bthru">${r.r2.played?(r.r2.done?'F':'thru '+r.r2.thru):'to play'}</span></div>
-          <div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${r.played?r.strokes:''}</span></div>
+          ${roundCell(r.r1)}
+          ${roundCell(r.r2)}
+          ${totalCell(r)}
         </div>`;
       } else {
         html += `<div class="brow g4 ${lead?'lead':''} ${i%2?'alt':''}">
           <div class="bnum">${r.played ? (i+1) : '—'}</div>
           ${name}
           ${r.played
-            ? `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.strokes}</span></div><div class="bgross">${r.done?'F':r.thru}</div>`
+            ? `<div class="bnet ${relClass(r.toPar)}">${fmtRel(r.toPar)}<span class="bthru">${r.done?r.strokes:''}</span></div><div class="bgross">${r.done?'F':r.thru}</div>`
             : `<div class="bgross">—</div><div class="bgross">—</div>`}
         </div>`;
       }
