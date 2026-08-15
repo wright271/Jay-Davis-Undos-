@@ -94,7 +94,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .brow.lead{border-left-color:var(--gold)}
 .g3{grid-template-columns:22px minmax(0,1fr) auto}
 .g4{grid-template-columns:22px minmax(0,1fr) 46px 46px}
-.g5{grid-template-columns:20px minmax(0,1fr) 34px 34px 52px}
+.g5{grid-template-columns:18px minmax(0,1fr) 38px 46px 52px}
 .dayswitch{display:flex;gap:0;background:var(--board-hd);border-radius:8px;overflow:hidden;margin:12px 0 4px}
 .dayb{flex:1;padding:10px 4px;border:none;background:transparent;color:#8fb3a0;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;border-bottom:3px solid transparent}
 .dayb.on{color:#fff;background:var(--board);border-bottom-color:var(--gold)}
@@ -708,9 +708,10 @@ let bulkMsg = '';
 
 /* ---------- Render ---------- */
 function render(){
-  const all = rankPlayers(playerList());
+  const twoDay = (activeDay === 'day2' || day2Exists);
+  const all = twoDay ? rankPlayersBy(playerList(), 'total') : rankPlayers(playerList());
   const leader = all.length ? all[0] : null;
-  const lr = leader ? playerResult(leader.p) : null;
+  const lr = leader ? (twoDay ? resultFor(leader.id, 'total') : playerResult(leader.p)) : null;
 
   let html = `
   <div class="hdr">
@@ -730,12 +731,12 @@ function render(){
     html += `
     <div class="hdr-lead">
       <div>
-        <div class="hl-cap">Low round &middot; ${esc(flightLabel(leader.p.flight))}</div>
+        <div class="hl-cap">${twoDay ? 'Leading &middot; 36 holes' : 'Low round'} &middot; ${esc(flightLabel(leader.p.flight))}</div>
         <div class="hl-team">${esc(leader.p.name || 'Unnamed')}</div>
       </div>
       <div style="text-align:right">
         <div class="hl-score ${relClass(lr.toPar)}">${fmtRel(lr.toPar)}</div>
-        <div class="hl-thru">${lr.strokes} &middot; ${lr.done?'final':'thru '+lr.thru}</div>
+        <div class="hl-thru">${lr.strokes} &middot; ${lr.done?'final':'thru '+lr.thru+(twoDay?' of 36':'')}</div>
       </div>
     </div>`;
   } else {
@@ -822,8 +823,8 @@ function renderIndividual(){
         html += `<div class="brow g5 ${lead?'lead':''} ${i%2?'alt':''}">
           <div class="bnum">${r.played ? (i+1) : '—'}</div>
           ${name}
-          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}</div>
-          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}</div>
+          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}${r.r1.played&&!r.r1.done?`<span class="bthru">${r.r1.thru}</span>`:''}</div>
+          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}<span class="bthru">${r.r2.played?(r.r2.done?'F':'thru '+r.r2.thru):'to play'}</span></div>
           <div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${r.played?r.strokes:''}</span></div>
         </div>`;
       } else {
@@ -874,8 +875,8 @@ function renderTeams(){
         html += `<div class="brow g5 ${lead?'lead':''} ${i%2?'alt':''}">
           <div class="bnum">${r.played ? (i+1) : '—'}</div>
           ${name}
-          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}</div>
-          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}</div>
+          <div class="bgross">${r.r1.played?r.r1.strokes:'—'}${r.r1.played&&!r.r1.done?`<span class="bthru">${r.r1.thru}</span>`:''}</div>
+          <div class="bgross">${r.r2.played?r.r2.strokes:'—'}<span class="bthru">${r.r2.played?(r.r2.done?'F':'thru '+r.r2.thru):'to play'}</span></div>
           <div class="bnet ${relClass(r.toPar)}">${r.played?fmtRel(r.toPar):'—'}<span class="bthru">${r.played?r.strokes:''}</span></div>
         </div>`;
       } else {
