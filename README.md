@@ -86,11 +86,11 @@ Two constants at the top of the `<script>` block in `index.html`:
 
 ```js
 const DB_PATH = 'undos';            // the key in the database
-const ADMIN_PASSWORD = "captain";   // change this before sharing the link
+const ADMIN_PASSWORD = "davis";     // committee password for the Admin screen
 ```
 
-**Change the password before you send the link out.** Anyone who opens the link
-can watch the leaderboards; only the password unlocks the roster and settings.
+Anyone who opens the link can watch the leaderboards; only the password unlocks
+the roster and settings. Change it here and push to update it.
 
 ### Firebase
 
