@@ -323,6 +323,51 @@ const DAY_KEYS   = { day1: DB_PATH, day2: DAY2_PATH };
 const DAY_LABELS = { day1: 'Saturday', day2: 'Sunday' };
 const DAY_SHORT  = { day1: 'R1', day2: 'R2' };
 
+/* Sunday 16 August — final sheet, groups and tee times only.
+   Applied onto the players already in the roster by name: nobody is created
+   and nobody is removed, so the ids carry on matching Saturday and the
+   two-day total holds. Partners are unchanged from Saturday, so the teams are
+   left alone. */
+const SUNDAY_TEES = [
+  { g: 1, t:"07:15 AM", p:["Dave Angalich","Dan Angalich","Tom Gaudino","T. C. Chappelear"] },
+  { g: 2, t:"07:25 AM", p:["Doug Lucas","Corey Lyseski","Nathan Martin","Tim Shia"] },
+  { g: 3, t:"07:35 AM", p:["Brendan Vucelich","Jacob Jefferies","Zach Herink","Jeff Herink"] },
+  { g: 4, t:"07:45 AM", p:["Jeff Gadzak","Jonathan Shaffer","Donnie Guthrie","Bryan Woodford"] },
+  { g: 5, t:"07:55 AM", p:["Nathan Skrzypec","Eric West","Mike Garman","Nolan Wilson"] },
+  { g: 6, t:"08:05 AM", p:["Tyler Heinrich","Boaz Swift","Henry Ralston","Cameron Criswell"] },
+  { g: 7, t:"08:15 AM", p:["Jimmy Henderson","Aidan Lucey","Kaleb Blackman","Justin Demarchi"] },
+  { g: 8, t:"08:25 AM", p:["Steven Rapp","Steven Corder","David Shaffer","Mike Duplaga"] },
+  { g: 9, t:"08:35 AM", p:["Mike Bogers","Brad Archer","Rick Richmond","Ryan Richmond"] },
+  { g:10, t:"08:45 AM", p:["Zack Hood","Jonathan Kreiter","Clark Sambuco","Todd Antill"] },
+  { g:11, t:"08:55 AM", p:["Sawyer Hobbs","Dorthea Evebo"] },
+  { g:12, t:"09:05 AM", p:["Olivia Baker","Tilly Jones","Emma Mrkonja"] },
+  { g:13, t:"09:15 AM", p:["Ben Dobkin","Nathan Young","Sam Miles","Thomas Becker"] },
+  { g:14, t:"09:35 AM", p:["John Lenkey","Jeremy Enslen","Noah Seivertson","Scotty Hand"] },
+  { g:15, t:"09:45 AM", p:["Clay Bethel","Ethan Bethel","Issac Depew","Adam Gill"] },
+  { g:16, t:"09:55 AM", p:["Brooke Garrison","Shane Glass","Greig Paetzold","David Reasbeck"] },
+  { g:17, t:"10:05 AM", p:["Scott Shreve","Mark Moore","Marcus Ondra","Bernie Roman"] },
+  { g:18, t:"10:15 AM", p:["Lorenzo Lupi","Brandon Lee","Caden Myers","Joel Shane"] },
+  { g:19, t:"10:25 AM", p:["Jaren Straughn","Seth Carenbauer","Jamin Brock","Davis Yuhas"] },
+  { g:20, t:"10:35 AM", p:["Ray Braun","Ike Chambers","Justin Otto","David Beals"] },
+  { g:21, t:"11:40 AM", p:["Don Cash","Jake Pennybacker","Mike Pietranton","Mike McLeod"] },
+  { g:22, t:"11:50 AM", p:["Jay Pappas","Mike Moore","John Fryman","Jeffrey Maier"] },
+  { g:23, t:"12:00 PM", p:["Michael Lutz","Robert Tajc","Jay Davis","Rico Simonetti"] },
+  { g:24, t:"12:10 PM", p:["Bob Clark","Joe Doerr","Mike Wetzel","Matt Hines"] },
+  { g:25, t:"12:20 PM", p:["Scott Seabright","Kyle Wensel","Magnus Gray","Yeraslan Yergali"] },
+  { g:26, t:"12:30 PM", p:["Andrew Strope","Nick Zaller","Makstr McIntyre","Solomon Ness"] },
+  { g:27, t:"12:40 PM", p:["Aric Goddard","Joseph Darmafall","Jeremy Fuller","Howie Peterson"] },
+  { g:28, t:"12:50 PM", p:["Jarrod Falasca","James Salvatori","Carson Schambach","Anthony Reasbeck"] },
+  { g:29, t:"01:00 PM", p:["Michael Rogers","Garrett Emch","Seth Hand","Sean McFarland"] },
+  { g:30, t:"01:10 PM", p:["Zac Collins","Cormac Pearson","Luis Alvarez","Federico Cobos-Kallman"] },
+  { g:31, t:"01:20 PM", p:["Mathias Nunez","Sean Dobson","Stephen Gretchen","Cole Hand"] },
+  { g:32, t:"01:30 PM", p:["Gavin Goodrich","Bryan Myers","Jamie Botton","Harvey Underwood"] },
+  { g:33, t:"01:40 PM", p:["Lodin Femoen","Luke Wennberg","Brodi Foster","Mavrik Malin"] }
+];
+
+/* The two sheets spell one player differently. Same man, so map it rather
+   than leave him unplaced. */
+const SUNDAY_ALIASES = { 'jaren straughn': 'jared straugh' };
+
 function defaultState(){
   return { eventName: EVENT_DEFAULT, par: PAR_DEFAULT.slice(), players: {}, teams: {} };
 }
@@ -1297,7 +1342,14 @@ function renderAdmin(){
     html += `<div class="banner">This <b>replaces the whole field</b> — every player, team and posted score. Do it before play starts.</div>`;
     html += `<div style="margin:12px 0"><button class="btn" onclick="loadTeeSheet()">Load the Saturday tee sheet</button>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">${loaded?loaded+' players currently have tee times':'not loaded yet'}</span></div>`;
-    html += `<div class="board"><div class="board-hd"><span class="t">What will be loaded</span><span class="r">${TEE_SHEET.length} groups</span></div>`;
+    const sunPlayers = SUNDAY_TEES.reduce((n,g)=>n+g.p.length,0);
+    html += `<div class="board" style="margin-bottom:14px">
+      <div class="board-hd"><span class="t">Sunday &mdash; groups and tee times</span><span class="r">${SUNDAY_TEES.length} groups &middot; ${sunPlayers} players</span></div>
+      <div class="bfoot">Puts Sunday's groups and tee times onto the players already in the roster. <b>Nobody is added or removed and no score is touched</b>, so the two-day total holds. Partners are unchanged from Saturday, so the teams are left alone. It checks every name first and tells you about anything that does not line up.</div>
+    </div>`;
+    html += `<div style="margin:0 0 18px"><button class="btn" onclick="applySundayTees()">Load Sunday's tee times</button>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">${activeDay==='day2'?'':'switch to Sunday first'}</span></div>`;
+    html += `<div class="board"><div class="board-hd"><span class="t">Saturday &mdash; full field import</span><span class="r">${TEE_SHEET.length} groups</span></div>`;
     TEE_SHEET.forEach((g,i)=>{
       html += `<div class="brow g3 ${i%2?'alt':''}" style="cursor:default">
         <div class="bnum">${g.g}</div>
@@ -1584,6 +1636,51 @@ function writeOrWarn(path, value, what){
     alert(what + " could not be saved.\n\n" + ((e && e.message) ? e.message : e) +
       "\n\nPublish the updated database rules in the Firebase console, then try again.");
   });
+}
+
+/* Match on a name the way a person would: case and spacing do not matter. */
+function normName(n){ return String(n||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
+/* Apply Sunday's groups and tee times to the players already in the roster.
+   Deliberately never creates or deletes anybody — a new player would get a new
+   id, and the id is what ties Sunday's card to Saturday's for the two-day
+   total. Anything that does not line up is reported rather than guessed at. */
+function applySundayTees(){
+  if (activeDay !== 'day2'){
+    alert("The field is still on Saturday. Switch to Sunday first, or this would overwrite Saturday's tee times.");
+    return;
+  }
+  const byName = {};
+  playerList().forEach(x=>{ byName[normName(x.p.name)] = x; });
+
+  const placed = [], missing = [];
+  const seen = {};
+  SUNDAY_TEES.forEach(g=>{
+    g.p.forEach((name, i)=>{
+      const key = normName(name);
+      const x = byName[SUNDAY_ALIASES[key] || key];
+      if (!x){ missing.push(name); return; }
+      seen[x.id] = true;
+      placed.push({ x: x, g: g.g, t: g.t, ord: i });
+    });
+  });
+  const notOnSheet = playerList().filter(x=>!seen[x.id]).map(x=>x.p.name);
+
+  let msg = 'Sunday tee sheet\n\n' + placed.length + ' of ' + playerList().length + ' players matched.';
+  if (missing.length) msg += '\n\nOn the sheet but not in the roster (' + missing.length + '):\n  ' + missing.join('\n  ');
+  if (notOnSheet.length) msg += '\n\nIn the roster but not on the sheet (' + notOnSheet.length + '):\n  ' + notOnSheet.join('\n  ');
+  msg += '\n\nApply the groups and tee times? Scores, teams and flights are not touched.';
+  if (!confirm(msg)) return;
+
+  placed.forEach(item=>{
+    const p = state.players[item.x.id];
+    p.grp = item.g; p.tee = item.t; p.ord = item.ord;
+    persist('players/' + item.x.id + '/grp', item.g);
+    persist('players/' + item.x.id + '/tee', item.t);
+    persist('players/' + item.x.id + '/ord', item.ord);
+  });
+  bulkMsg = 'Placed ' + placed.length + ' players in Sunday\'s groups.';
+  render();
 }
 
 function buildDay2(){
