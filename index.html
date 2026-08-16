@@ -364,9 +364,17 @@ const SUNDAY_TEES = [
   { g:33, t:"01:40 PM", p:["Lodin Femoen","Luke Wennberg","Brodi Foster","Mavrik Malin"] }
 ];
 
-/* The two sheets spell one player differently. Same man, so map it rather
-   than leave him unplaced. */
-const SUNDAY_ALIASES = { 'jaren straughn': 'jared straugh' };
+/* The same player spelled two ways across the two days. Both spellings
+   canonicalise to one key, so a card is found whichever way the name was
+   typed, in either direction. */
+const NAME_ALIASES = {
+  'jaren straughn': 'jared straugh',
+  'todd antill':    'todd antil'
+};
+function canonName(n){
+  const k = normName(n);
+  return NAME_ALIASES[k] || k;
+}
 
 /* Match on a name the way a person would: case and spacing do not matter. */
 function normName(n){ return String(n||'').trim().toLowerCase().replace(/\s+/g,' '); }
@@ -581,7 +589,7 @@ function dayNameIndex(dayId){
   if (cache.src === st) return cache.idx;
   const idx = {}, dupe = {};
   Object.keys(st.players || {}).forEach(id=>{
-    const n = normName(st.players[id].name);
+    const n = canonName(st.players[id].name);
     if (!n) return;
     if (idx[n] !== undefined) dupe[n] = true; else idx[n] = id;
   });
@@ -598,7 +606,7 @@ function playerInDay(pid, dayId){
   if (st.players[pid]) return st.players[pid];
   const src = (state.players && state.players[pid]) || days.day1.players[pid] || days.day2.players[pid];
   if (!src || !src.name) return null;
-  const other = dayNameIndex(dayId)[normName(src.name)];
+  const other = dayNameIndex(dayId)[canonName(src.name)];
   return other ? st.players[other] : null;
 }
 
@@ -1302,7 +1310,7 @@ function renderAdmin(){
          costly direction to miss, so look both ways. */
       const hereIdx = dayNameIndex(activeDay);
       const orphans = Object.keys(days[otherId].players)
-        .filter(id=>!days[activeDay].players[id] && hereIdx[normName(days[otherId].players[id].name)] === undefined)
+        .filter(id=>!days[activeDay].players[id] && hereIdx[canonName(days[otherId].players[id].name)] === undefined)
         .map(id=>days[otherId].players[id].name || 'Unnamed');
       const ok = (byId + byName) === roster.length && roster.length > 0 && !orphans.length;
       html += `<div class="banner ${ok?'':'warn'}">
@@ -1713,14 +1721,13 @@ function applySundayTees(){
     return;
   }
   const byName = {};
-  playerList().forEach(x=>{ byName[normName(x.p.name)] = x; });
+  playerList().forEach(x=>{ byName[canonName(x.p.name)] = x; });
 
   const placed = [], missing = [];
   const seen = {};
   SUNDAY_TEES.forEach(g=>{
     g.p.forEach((name, i)=>{
-      const key = normName(name);
-      const x = byName[SUNDAY_ALIASES[key] || key];
+      const x = byName[canonName(name)];
       if (!x){ missing.push(name); return; }
       seen[x.id] = true;
       placed.push({ x: x, g: g.g, t: g.t, ord: i });
