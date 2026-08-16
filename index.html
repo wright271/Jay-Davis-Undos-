@@ -1297,13 +1297,21 @@ function renderAdmin(){
         const p = other || viaName;
         if (p && Object.keys(p.scores || {}).length) withScores++;
       });
-      const ok = (byId + byName) === roster.length && roster.length > 0;
+      /* The check above walks the active day. Anyone in the other day with no
+         card here never reaches the leaderboard at all, which is the more
+         costly direction to miss, so look both ways. */
+      const hereIdx = dayNameIndex(activeDay);
+      const orphans = Object.keys(days[otherId].players)
+        .filter(id=>!days[activeDay].players[id] && hereIdx[normName(days[otherId].players[id].name)] === undefined)
+        .map(id=>days[otherId].players[id].name || 'Unnamed');
+      const ok = (byId + byName) === roster.length && roster.length > 0 && !orphans.length;
       html += `<div class="banner ${ok?'':'warn'}">
         <b>Carryover check</b><br>
         ${withScores} of ${roster.length} players have a ${esc(DAY_LABELS[otherId])} card showing on the leaderboard.<br>
         Matched by id: <b>${byId}</b> &middot; matched by name: <b>${byName}</b> &middot; no match: <b>${none}</b>
         ${byName ? '<br>Matching by name means the two days were not built from one another — it works, but the ids no longer line up.' : ''}
-        ${none ? '<br><b>' + none + ' players have no ' + esc(DAY_LABELS[otherId]) + ' card at all.</b>' : ''}
+        ${none ? '<br><b>' + none + ' players here have no ' + esc(DAY_LABELS[otherId]) + ' card at all.</b>' : ''}
+        ${orphans.length ? '<br><b>' + orphans.length + ' in ' + esc(DAY_LABELS[otherId]) + ' are missing from ' + esc(DAY_LABELS[activeDay]) + ', so they are not on the leaderboard:</b><br>&nbsp;&nbsp;' + orphans.map(esc).join('<br>&nbsp;&nbsp;') : ''}
       </div>`;
     }
     html += `<div class="sess-meta">Sunday's tee times are set under <b>Players</b> once the sheet is out — the groups from Saturday come across, so change only what moves.</div>`;
