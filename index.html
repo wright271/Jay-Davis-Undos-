@@ -368,6 +368,9 @@ const SUNDAY_TEES = [
    than leave him unplaced. */
 const SUNDAY_ALIASES = { 'jaren straughn': 'jared straugh' };
 
+/* Match on a name the way a person would: case and spacing do not matter. */
+function normName(n){ return String(n||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
 function defaultState(){
   return { eventName: EVENT_DEFAULT, par: PAR_DEFAULT.slice(), players: {}, teams: {} };
 }
@@ -567,9 +570,41 @@ function cardOff(a, b){
    sheet and the skins. The leaderboard needs any day, or both added together,
    so it goes through these instead. Each day keeps its own par, so a change
    to the card on Sunday cannot rewrite Saturday's score to par. */
+/* Names indexed per day, so a card can still be found when the two days were
+   not built from one another and the ids differ. A name shared by two players
+   is dropped from the index rather than guessed at. Rebuilt only when that
+   day's data is replaced. */
+const _nameIdx = { day1: { src: null, idx: null }, day2: { src: null, idx: null } };
+function dayNameIndex(dayId){
+  const st = days[dayId];
+  const cache = _nameIdx[dayId];
+  if (cache.src === st) return cache.idx;
+  const idx = {}, dupe = {};
+  Object.keys(st.players || {}).forEach(id=>{
+    const n = normName(st.players[id].name);
+    if (!n) return;
+    if (idx[n] !== undefined) dupe[n] = true; else idx[n] = id;
+  });
+  Object.keys(dupe).forEach(n=>{ delete idx[n]; });
+  cache.src = st; cache.idx = idx;
+  return idx;
+}
+/* The same player in another day: by id first, then by name. The id is the
+   reliable link, but a Sunday roster built any other way than from Saturday
+   would have new ids and silently lose every first round. */
+function playerInDay(pid, dayId){
+  const st = days[dayId];
+  if (!st || !st.players) return null;
+  if (st.players[pid]) return st.players[pid];
+  const src = (state.players && state.players[pid]) || days.day1.players[pid] || days.day2.players[pid];
+  if (!src || !src.name) return null;
+  const other = dayNameIndex(dayId)[normName(src.name)];
+  return other ? st.players[other] : null;
+}
+
 function roundFor(pid, dayId){
   const st = days[dayId];
-  const p = st && st.players ? st.players[pid] : null;
+  const p = playerInDay(pid, dayId);
   if (!p) return { strokes:0, parSum:0, thru:0, toPar:0, done:false, played:false };
   let strokes=0, parSum=0, thru=0;
   for (let h=0; h<NUM_HOLES; h++){
@@ -587,12 +622,12 @@ function resultFor(pid, mode){
 }
 function teamRoundFor(t, dayId){
   const st = days[dayId];
-  const ids = [t.a, t.b].filter(id=>id && st.players && st.players[id]);
+  const ps = [t.a, t.b].map(id=>playerInDay(id, dayId)).filter(Boolean);
   let strokes=0, parSum=0, thru=0;
   for (let h=0; h<NUM_HOLES; h++){
     let best = null;
-    ids.forEach(id=>{
-      const v = parseInt((st.players[id].scores||{})['h'+h]);
+    ps.forEach(pl=>{
+      const v = parseInt((pl.scores||{})['h'+h]);
       if (v>0 && (best===null || v<best)) best = v;
     });
     if (best!==null){ strokes+=best; parSum+=st.par[h]; thru++; }
@@ -1249,6 +1284,28 @@ function renderAdmin(){
       html += `<div style="margin:12px 0"><button class="btn danger sm" onclick="rebuildDay2()">Rebuild Sunday from Saturday</button>
         <span style="font-size:12px;color:var(--muted);margin-left:8px">wipes Sunday's scores</span></div>`;
     }
+    /* Say plainly whether the carryover is actually landing, and how it is
+       being matched, rather than leaving a blank R1 column to be puzzled over. */
+    if (day2Exists){
+      const roster = Object.keys(days[activeDay].players);
+      const otherId = activeDay === 'day2' ? 'day1' : 'day2';
+      let byId = 0, byName = 0, none = 0, withScores = 0;
+      roster.forEach(id=>{
+        const other = days[otherId].players[id];
+        const viaName = other ? null : playerInDay(id, otherId);
+        if (other) byId++; else if (viaName) byName++; else none++;
+        const p = other || viaName;
+        if (p && Object.keys(p.scores || {}).length) withScores++;
+      });
+      const ok = (byId + byName) === roster.length && roster.length > 0;
+      html += `<div class="banner ${ok?'':'warn'}">
+        <b>Carryover check</b><br>
+        ${withScores} of ${roster.length} players have a ${esc(DAY_LABELS[otherId])} card showing on the leaderboard.<br>
+        Matched by id: <b>${byId}</b> &middot; matched by name: <b>${byName}</b> &middot; no match: <b>${none}</b>
+        ${byName ? '<br>Matching by name means the two days were not built from one another — it works, but the ids no longer line up.' : ''}
+        ${none ? '<br><b>' + none + ' players have no ' + esc(DAY_LABELS[otherId]) + ' card at all.</b>' : ''}
+      </div>`;
+    }
     html += `<div class="sess-meta">Sunday's tee times are set under <b>Players</b> once the sheet is out — the groups from Saturday come across, so change only what moves.</div>`;
   }
 
@@ -1637,9 +1694,6 @@ function writeOrWarn(path, value, what){
       "\n\nPublish the updated database rules in the Firebase console, then try again.");
   });
 }
-
-/* Match on a name the way a person would: case and spacing do not matter. */
-function normName(n){ return String(n||'').trim().toLowerCase().replace(/\s+/g,' '); }
 
 /* Apply Sunday's groups and tee times to the players already in the roster.
    Deliberately never creates or deletes anybody — a new player would get a new
